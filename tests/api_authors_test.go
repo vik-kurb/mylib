@@ -24,6 +24,7 @@ const (
 )
 
 type Author struct {
+	id          string
 	first_name  string
 	family_name string
 	birth_date  sql.NullTime
@@ -56,6 +57,12 @@ func setupTestDB() (*sql.DB, error) {
 
 func cleanupDB(db *sql.DB) {
 	db.Query(kDeleteAuthors)
+}
+
+func AddAuthorsDB(db *sql.DB, authors []Author) {
+	for _, author := range authors {
+		db.Exec("INSERT INTO authors(id, first_name, family_name) VALUES ($1, $2, $3)", author.id, author.first_name, author.family_name)
+	}
 }
 
 func setupTestServer(db *sql.DB) *httptest.Server {
@@ -150,4 +157,48 @@ func TestCreateAuthor_BadRequest(t *testing.T) {
 	response, err := http.Post(server.URL+kApiAuthorsPath, "application/json", bytes.NewBuffer([]byte("{}")))
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+}
+
+func TestGetAuthors_Success(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	db_authors := []Author{
+		{id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", first_name: "Alexander", family_name: "Pushkin"},
+		{id: "0254a622-68fd-4812-a0bc-d997bbe3a731", first_name: "Leo", family_name: "Tolstoy"},
+		{id: "1a05bda1-266c-4226-a662-51cbc60ddc86", first_name: "Fyodor", family_name: "Dostoevsky"},
+	}
+	AddAuthorsDB(db, db_authors)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	response, err := http.Get(server.URL + kApiAuthorsPath)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	decoder := json.NewDecoder(response.Body)
+	type responseAuthor struct {
+		Name string `json:"name"`
+		Id   string `json:"id"`
+	}
+	response_body := make([]responseAuthor, 0)
+	err = decoder.Decode(&response_body)
+	assert.NoError(t, err)
+	assert.Equal(t, response_body, []responseAuthor{{Name: "Fyodor Dostoevsky", Id: "1a05bda1-266c-4226-a662-51cbc60ddc86"}, {Name: "Alexander Pushkin", Id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea"}, {Name: "Leo Tolstoy", Id: "0254a622-68fd-4812-a0bc-d997bbe3a731"}})
+}
+
+func TestGetAuthors_NotFound(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	response, err := http.Get(server.URL + kApiAuthorsPath)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
