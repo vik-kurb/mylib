@@ -8,14 +8,19 @@ import (
 	"net/http"
 	"sort"
 	"time"
+
+	"github.com/google/uuid"
+)
+
+const (
+	kDateFormat = "02.01.2006"
 )
 
 func ToNullTime(s string) sql.NullTime {
 	if s == "" {
 		return sql.NullTime{}
 	}
-	const template = "02.01.2006"
-	t, err := time.Parse(template, s)
+	t, err := time.Parse(kDateFormat, s)
 	if err != nil {
 		fmt.Println("Error while parsing date:", err)
 		return sql.NullTime{}
@@ -88,4 +93,34 @@ func (cfg *ApiConfig) HandleGetApiAuthors(w http.ResponseWriter, r *http.Request
 		response_authors = append(response_authors, responseAuthor{Name: buildName(author.FirstName, author.FamilyName), Id: author.ID.String()})
 	}
 	respondWithJSON(w, http.StatusOK, response_authors)
+}
+
+func (cfg *ApiConfig) HandleGetApiAuthorsId(w http.ResponseWriter, r *http.Request) {
+	if cfg.DB == nil {
+		respondWithError(w, http.StatusInternalServerError, "DB error")
+		return
+	}
+
+	uuid, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid id")
+		return
+	}
+	author, db_err := cfg.DB.GetAuthor(r.Context(), uuid)
+	if db_err == sql.ErrNoRows {
+		respondWithError(w, http.StatusNotFound, "Author not found")
+		return
+	}
+	if db_err != nil {
+		respondWithError(w, http.StatusInternalServerError, db_err.Error())
+		return
+	}
+
+	type responseAuthor struct {
+		FirstName  string `json:"first_name"`
+		FamilyName string `json:"family_name"`
+		BirthDate  string `json:"birth_date,omitempty"`
+		DeathDate  string `json:"death_date,omitempty"`
+	}
+	respondWithJSON(w, http.StatusOK, responseAuthor{FirstName: author.FirstName, FamilyName: author.FamilyName, BirthDate: author.BirthDate.Time.Format(kDateFormat), DeathDate: author.DeathDate.Time.Format(kDateFormat)})
 }

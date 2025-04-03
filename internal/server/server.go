@@ -12,4 +12,5 @@ type ApiConfig struct {
 func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
 	sm.HandleFunc("POST /api/authors", apiCfg.HandlePostApiAuthors)
 	sm.HandleFunc("GET /api/authors", apiCfg.HandleGetApiAuthors)
+	sm.HandleFunc("GET /api/authors/{id}", apiCfg.HandleGetApiAuthorsId)
 }

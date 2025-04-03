@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"mylib/internal/database"
 	"mylib/internal/server"
@@ -11,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -21,6 +23,7 @@ const (
 	kApiAuthorsPath = "/api/authors"
 	kSelectAuthors  = "SELECT first_name, family_name, birth_date, death_date FROM authors"
 	kDeleteAuthors  = "TRUNCATE authors"
+	kTimeFormat     = "02.01.2006"
 )
 
 type Author struct {
@@ -35,7 +38,7 @@ func assertDateEqual(t *testing.T, time_date sql.NullTime, expected_data map[str
 	expected_date, ok := expected_data[key]
 	assert.Equal(t, ok, time_date.Valid)
 	if ok {
-		assert.Equal(t, time_date.Time.Format("02.01.2006"), expected_date)
+		assert.Equal(t, time_date.Time.Format(kTimeFormat), expected_date)
 	}
 }
 
@@ -61,7 +64,7 @@ func cleanupDB(db *sql.DB) {
 
 func AddAuthorsDB(db *sql.DB, authors []Author) {
 	for _, author := range authors {
-		db.Exec("INSERT INTO authors(id, first_name, family_name) VALUES ($1, $2, $3)", author.id, author.first_name, author.family_name)
+		db.Exec("INSERT INTO authors(id, first_name, family_name, birth_date, death_date) VALUES ($1, $2, $3, $4, $5)", author.id, author.first_name, author.family_name, author.birth_date, author.death_date)
 	}
 }
 
@@ -93,6 +96,14 @@ func GetDbAuthors(t *testing.T, db *sql.DB) []Author {
 		log.Fatal("Error reading rows:", err)
 	}
 	return authors
+}
+
+func toSqlNullTime(s string) sql.NullTime {
+	t, err := time.Parse(kTimeFormat, s)
+	if err != nil {
+		return sql.NullTime{}
+	}
+	return sql.NullTime{Time: t, Valid: true}
 }
 
 func TestCreateAuthor_Success(t *testing.T) {
@@ -201,4 +212,64 @@ func TestGetAuthors_NotFound(t *testing.T) {
 	response, err := http.Get(server.URL + kApiAuthorsPath)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
+}
+
+func TestGetAuthorsId_Success(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	author := Author{
+		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", first_name: "Alexander", family_name: "Pushkin", birth_date: toSqlNullTime("06.06.1799"), death_date: toSqlNullTime("10.20.1837"),
+	}
+	AddAuthorsDB(db, []Author{author})
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", server.URL, kApiAuthorsPath, author.id))
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	decoder := json.NewDecoder(response.Body)
+	type responseAuthor struct {
+		FirstName  string `json:"first_name"`
+		FamilyName string `json:"family_name"`
+		BirthDate  string `json:"birth_date,omitempty"`
+		DeathDate  string `json:"death_date,omitempty"`
+	}
+	response_body := responseAuthor{}
+	err = decoder.Decode(&response_body)
+	assert.NoError(t, err)
+	assert.Equal(t, response_body, responseAuthor{FirstName: author.first_name, FamilyName: author.family_name, BirthDate: author.birth_date.Time.Format(kTimeFormat), DeathDate: author.death_date.Time.Format(kTimeFormat)})
+}
+
+func TestGetAuthorsId_NotFound(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	id := "aeecbc4e-9547-4fce-88ac-4e739567a1ea"
+	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", server.URL, kApiAuthorsPath, id))
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, response.StatusCode)
+}
+
+func TestGetAuthorsId_InvalidId(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	id := "invalid_uuid"
+	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", server.URL, kApiAuthorsPath, id))
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 }
