@@ -145,3 +145,49 @@ func (cfg *ApiConfig) HandleDeleteAdminAuthors(w http.ResponseWriter, r *http.Re
 
 	w.WriteHeader(http.StatusOK)
 }
+
+func (cfg *ApiConfig) HandlePutApiAuthors(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	type requestBody struct {
+		Id         string `json:"id"`
+		FirstName  string `json:"first_name"`
+		FamilyName string `json:"family_name"`
+		BirthDate  string `json:"birth_date,omitempty"`
+		DeathDate  string `json:"death_date,omitempty"`
+	}
+	request := requestBody{}
+	err := decoder.Decode(&request)
+	if err != nil || request.FamilyName == "" || request.FirstName == "" {
+		respondWithError(w, http.StatusBadRequest, "Invalid request")
+		return
+	}
+
+	uuid, uuid_err := uuid.Parse(request.Id)
+	if uuid_err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid id")
+		return
+	}
+
+	if cfg.DB == nil {
+		respondWithError(w, http.StatusInternalServerError, "DB error")
+		return
+	}
+
+	rows_count, db_err := cfg.DB.UpdateAuthor(
+		r.Context(),
+		database.UpdateAuthorParams{
+			ID:         uuid,
+			FirstName:  request.FirstName,
+			FamilyName: request.FamilyName,
+			BirthDate:  ToNullTime(request.BirthDate),
+			DeathDate:  ToNullTime(request.DeathDate)})
+	if db_err != nil {
+		respondWithError(w, http.StatusInternalServerError, db_err.Error())
+		return
+	}
+	if rows_count == 0 {
+		respondWithError(w, http.StatusNotFound, "Author not found")
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}

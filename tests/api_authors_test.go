@@ -22,7 +22,7 @@ import (
 const (
 	kApiAuthorsPath   = "/api/authors"
 	kAdminAuthorsPath = "/admin/authors"
-	kSelectAuthors    = "SELECT first_name, family_name, birth_date, death_date FROM authors"
+	kSelectAuthors    = "SELECT first_name, family_name, birth_date, death_date, created_at, updated_at FROM authors"
 	kDeleteAuthors    = "TRUNCATE authors"
 	kTimeFormat       = "02.01.2006"
 )
@@ -33,6 +33,8 @@ type Author struct {
 	family_name string
 	birth_date  sql.NullTime
 	death_date  sql.NullTime
+	created_at  time.Time
+	updated_at  time.Time
 }
 
 func assertDateEqual(t *testing.T, time_date sql.NullTime, expected_data map[string]string, key string) {
@@ -65,7 +67,9 @@ func cleanupDB(db *sql.DB) {
 
 func AddAuthorsDB(db *sql.DB, authors []Author) {
 	for _, author := range authors {
-		db.Exec("INSERT INTO authors(id, first_name, family_name, birth_date, death_date) VALUES ($1, $2, $3, $4, $5)", author.id, author.first_name, author.family_name, author.birth_date, author.death_date)
+		db.Exec(
+			"INSERT INTO authors(id, first_name, family_name, birth_date, death_date, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+			author.id, author.first_name, author.family_name, author.birth_date, author.death_date, author.created_at, author.updated_at)
 	}
 }
 
@@ -86,7 +90,7 @@ func GetDbAuthors(t *testing.T, db *sql.DB) []Author {
 
 	for rows.Next() {
 		a := Author{}
-		err := rows.Scan(&a.first_name, &a.family_name, &a.birth_date, &a.death_date)
+		err := rows.Scan(&a.first_name, &a.family_name, &a.birth_date, &a.death_date, &a.created_at, &a.updated_at)
 		if err != nil {
 			log.Fatal("Error scanning row:", err)
 		}
@@ -344,4 +348,110 @@ func TestDeleteAuthorsId_InvalidId(t *testing.T) {
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+}
+
+func TestUpdateAuthor_Success(t *testing.T) {
+	db, db_err := setupTestDB()
+	assert.NoError(t, db_err)
+	defer db.Close()
+	cleanupDB(db)
+	author := Author{
+		id:          "aeecbc4e-9547-4fce-88ac-4e739567a1ea",
+		first_name:  "Alexander",
+		family_name: "Pushkin",
+		birth_date:  toSqlNullTime("06.06.1799"),
+		death_date:  toSqlNullTime("10.20.1837"),
+		created_at:  time.Date(2025, 2, 3, 0, 0, 0, 0, time.UTC),
+		updated_at:  time.Date(2025, 2, 5, 0, 0, 0, 0, time.UTC),
+	}
+	AddAuthorsDB(db, []Author{author})
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	request_body := map[string]string{
+		"id":          author.id,
+		"first_name":  "Leo",
+		"family_name": "Tolstoy",
+		"birth_date":  "09.09.1828",
+		"death_date":  "20.11.1910",
+	}
+	body, _ := json.Marshal(request_body)
+
+	client := &http.Client{}
+	request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", server.URL, kApiAuthorsPath), bytes.NewBuffer(body))
+	assert.NoError(t, err)
+
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	authors := GetDbAuthors(t, db)
+	assert.Equal(t, len(authors), 1)
+	assertEqual(t, authors[0], request_body)
+	assert.True(t, authors[0].created_at.Equal(author.created_at))
+	assert.False(t, authors[0].updated_at.Equal(author.updated_at))
+}
+
+func TestUpdateAuthor_NotFoundAuthor(t *testing.T) {
+	db, db_err := setupTestDB()
+	assert.NoError(t, db_err)
+	defer db.Close()
+	cleanupDB(db)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	request_body := map[string]string{
+		"id":          "aeecbc4e-9547-4fce-88ac-4e739567a1ea",
+		"first_name":  "Leo",
+		"family_name": "Tolstoy",
+		"birth_date":  "09.09.1828",
+		"death_date":  "20.11.1910",
+	}
+	body, _ := json.Marshal(request_body)
+
+	client := &http.Client{}
+	request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", server.URL, kApiAuthorsPath), bytes.NewBuffer(body))
+	assert.NoError(t, err)
+
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusNotFound, response.StatusCode)
+
+	authors := GetDbAuthors(t, db)
+	assert.Equal(t, len(authors), 0)
+}
+
+func TestUpdateAuthor_InvalidId(t *testing.T) {
+	db, db_err := setupTestDB()
+	assert.NoError(t, db_err)
+	defer db.Close()
+	cleanupDB(db)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	request_body := map[string]string{
+		"id":          "invalid_id",
+		"first_name":  "Leo",
+		"family_name": "Tolstoy",
+		"birth_date":  "09.09.1828",
+		"death_date":  "20.11.1910",
+	}
+	body, _ := json.Marshal(request_body)
+
+	client := &http.Client{}
+	request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", server.URL, kApiAuthorsPath), bytes.NewBuffer(body))
+	assert.NoError(t, err)
+
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+
+	authors := GetDbAuthors(t, db)
+	assert.Equal(t, len(authors), 0)
 }

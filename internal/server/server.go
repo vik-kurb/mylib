@@ -14,4 +14,5 @@ func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
 	sm.HandleFunc("GET /api/authors", apiCfg.HandleGetApiAuthors)
 	sm.HandleFunc("GET /api/authors/{id}", apiCfg.HandleGetApiAuthorsId)
 	sm.HandleFunc("DELETE /admin/authors/{id}", apiCfg.HandleDeleteAdminAuthors)
+	sm.HandleFunc("PUT /api/authors", apiCfg.HandlePutApiAuthors)
 }
