@@ -20,10 +20,11 @@ import (
 )
 
 const (
-	kApiAuthorsPath = "/api/authors"
-	kSelectAuthors  = "SELECT first_name, family_name, birth_date, death_date FROM authors"
-	kDeleteAuthors  = "TRUNCATE authors"
-	kTimeFormat     = "02.01.2006"
+	kApiAuthorsPath   = "/api/authors"
+	kAdminAuthorsPath = "/admin/authors"
+	kSelectAuthors    = "SELECT first_name, family_name, birth_date, death_date FROM authors"
+	kDeleteAuthors    = "TRUNCATE authors"
+	kTimeFormat       = "02.01.2006"
 )
 
 type Author struct {
@@ -125,6 +126,7 @@ func TestCreateAuthor_Success(t *testing.T) {
 
 	response, err := http.Post(server.URL+kApiAuthorsPath, "application/json", bytes.NewBuffer(body))
 	assert.NoError(t, err)
+	defer response.Body.Close()
 	assert.Equal(t, http.StatusCreated, response.StatusCode)
 
 	authors := GetDbAuthors(t, db)
@@ -149,6 +151,7 @@ func TestCreateAuthor_EmptyDates(t *testing.T) {
 
 	response, err := http.Post(server.URL+kApiAuthorsPath, "application/json", bytes.NewBuffer(body))
 	assert.NoError(t, err)
+	defer response.Body.Close()
 	assert.Equal(t, http.StatusCreated, response.StatusCode)
 
 	authors := GetDbAuthors(t, db)
@@ -167,6 +170,7 @@ func TestCreateAuthor_BadRequest(t *testing.T) {
 
 	response, err := http.Post(server.URL+kApiAuthorsPath, "application/json", bytes.NewBuffer([]byte("{}")))
 	assert.NoError(t, err)
+	defer response.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 }
 
@@ -187,6 +191,7 @@ func TestGetAuthors_Success(t *testing.T) {
 
 	response, err := http.Get(server.URL + kApiAuthorsPath)
 	assert.NoError(t, err)
+	defer response.Body.Close()
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 
 	decoder := json.NewDecoder(response.Body)
@@ -211,6 +216,7 @@ func TestGetAuthors_NotFound(t *testing.T) {
 
 	response, err := http.Get(server.URL + kApiAuthorsPath)
 	assert.NoError(t, err)
+	defer response.Body.Close()
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
@@ -229,6 +235,7 @@ func TestGetAuthorsId_Success(t *testing.T) {
 
 	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", server.URL, kApiAuthorsPath, author.id))
 	assert.NoError(t, err)
+	defer response.Body.Close()
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 
 	decoder := json.NewDecoder(response.Body)
@@ -256,6 +263,7 @@ func TestGetAuthorsId_NotFound(t *testing.T) {
 	id := "aeecbc4e-9547-4fce-88ac-4e739567a1ea"
 	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", server.URL, kApiAuthorsPath, id))
 	assert.NoError(t, err)
+	defer response.Body.Close()
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
@@ -271,5 +279,69 @@ func TestGetAuthorsId_InvalidId(t *testing.T) {
 	id := "invalid_uuid"
 	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", server.URL, kApiAuthorsPath, id))
 	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+}
+
+func TestDeleteAuthorsId_Success(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	author := Author{
+		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", first_name: "Alexander", family_name: "Pushkin", birth_date: toSqlNullTime("06.06.1799"), death_date: toSqlNullTime("10.20.1837"),
+	}
+	AddAuthorsDB(db, []Author{author})
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	client := &http.Client{}
+	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", server.URL, kAdminAuthorsPath, author.id), nil)
+	assert.NoError(t, err)
+
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+}
+
+func TestDeleteAuthorsId_NoAuthor(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	client := &http.Client{}
+	id := "aeecbc4e-9547-4fce-88ac-4e739567a1ea"
+	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", server.URL, kAdminAuthorsPath, id), nil)
+	assert.NoError(t, err)
+
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+}
+
+func TestDeleteAuthorsId_InvalidId(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	client := &http.Client{}
+	id := "invalud id"
+	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", server.URL, kAdminAuthorsPath, id), nil)
+	assert.NoError(t, err)
+
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 }

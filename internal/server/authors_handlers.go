@@ -124,3 +124,24 @@ func (cfg *ApiConfig) HandleGetApiAuthorsId(w http.ResponseWriter, r *http.Reque
 	}
 	respondWithJSON(w, http.StatusOK, responseAuthor{FirstName: author.FirstName, FamilyName: author.FamilyName, BirthDate: author.BirthDate.Time.Format(kDateFormat), DeathDate: author.DeathDate.Time.Format(kDateFormat)})
 }
+
+func (cfg *ApiConfig) HandleDeleteAdminAuthors(w http.ResponseWriter, r *http.Request) {
+	uuid, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid id")
+		return
+	}
+
+	if cfg.DB == nil {
+		respondWithError(w, http.StatusInternalServerError, "DB error")
+		return
+	}
+
+	db_err := cfg.DB.DeleteAuthor(r.Context(), uuid)
+	if db_err != nil {
+		respondWithError(w, http.StatusInternalServerError, db_err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
