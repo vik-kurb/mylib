@@ -1,2 +1,2 @@
 -- name: GetAuthors :many
-SELECT id, first_name, family_name FROM authors;
+SELECT id, full_name FROM authors;

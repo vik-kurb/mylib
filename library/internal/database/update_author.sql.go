@@ -14,27 +14,24 @@ import (
 
 const updateAuthor = `-- name: UpdateAuthor :execrows
 UPDATE authors SET
-    first_name = $2,
-    family_name = $3,
-    birth_date = $4,
-    death_date = $5,
+    full_name = $2,
+    birth_date = $3,
+    death_date = $4,
     updated_at = NOW()
 WHERE id = $1
 `
 
 type UpdateAuthorParams struct {
-	ID         uuid.UUID
-	FirstName  string
-	FamilyName string
-	BirthDate  sql.NullTime
-	DeathDate  sql.NullTime
+	ID        uuid.UUID
+	FullName  string
+	BirthDate sql.NullTime
+	DeathDate sql.NullTime
 }
 
 func (q *Queries) UpdateAuthor(ctx context.Context, arg UpdateAuthorParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, updateAuthor,
 		arg.ID,
-		arg.FirstName,
-		arg.FamilyName,
+		arg.FullName,
 		arg.BirthDate,
 		arg.DeathDate,
 	)

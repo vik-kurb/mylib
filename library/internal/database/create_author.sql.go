@@ -11,25 +11,19 @@ import (
 )
 
 const createAuthor = `-- name: CreateAuthor :exec
-INSERT INTO authors (id, first_name, family_name, birth_date, death_date, created_at, updated_at)
+INSERT INTO authors (id, full_name, birth_date, death_date, created_at, updated_at)
 VALUES (
-    gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW()
+    gen_random_uuid(), $1, $2, $3, NOW(), NOW()
 )
 `
 
 type CreateAuthorParams struct {
-	FirstName  string
-	FamilyName string
-	BirthDate  sql.NullTime
-	DeathDate  sql.NullTime
+	FullName  string
+	BirthDate sql.NullTime
+	DeathDate sql.NullTime
 }
 
 func (q *Queries) CreateAuthor(ctx context.Context, arg CreateAuthorParams) error {
-	_, err := q.db.ExecContext(ctx, createAuthor,
-		arg.FirstName,
-		arg.FamilyName,
-		arg.BirthDate,
-		arg.DeathDate,
-	)
+	_, err := q.db.ExecContext(ctx, createAuthor, arg.FullName, arg.BirthDate, arg.DeathDate)
 	return err
 }

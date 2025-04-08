@@ -22,19 +22,18 @@ import (
 const (
 	kApiAuthorsPath   = "/api/authors"
 	kAdminAuthorsPath = "/admin/authors"
-	kSelectAuthors    = "SELECT first_name, family_name, birth_date, death_date, created_at, updated_at FROM authors"
+	kSelectAuthors    = "SELECT full_name, birth_date, death_date, created_at, updated_at FROM authors"
 	kDeleteAuthors    = "TRUNCATE authors"
 	kTimeFormat       = "02.01.2006"
 )
 
 type Author struct {
-	id          string
-	first_name  string
-	family_name string
-	birth_date  sql.NullTime
-	death_date  sql.NullTime
-	created_at  time.Time
-	updated_at  time.Time
+	id         string
+	full_name  string
+	birth_date sql.NullTime
+	death_date sql.NullTime
+	created_at time.Time
+	updated_at time.Time
 }
 
 func assertDateEqual(t *testing.T, time_date sql.NullTime, expected_data map[string]string, key string) {
@@ -46,8 +45,7 @@ func assertDateEqual(t *testing.T, time_date sql.NullTime, expected_data map[str
 }
 
 func assertEqual(t *testing.T, author Author, expected_data map[string]string) {
-	assert.Equal(t, author.first_name, expected_data["first_name"])
-	assert.Equal(t, author.family_name, expected_data["family_name"])
+	assert.Equal(t, author.full_name, expected_data["full_name"])
 	assertDateEqual(t, author.birth_date, expected_data, "birth_date")
 	assertDateEqual(t, author.death_date, expected_data, "death_date")
 }
@@ -68,8 +66,8 @@ func cleanupDB(db *sql.DB) {
 func AddAuthorsDB(db *sql.DB, authors []Author) {
 	for _, author := range authors {
 		db.Exec(
-			"INSERT INTO authors(id, first_name, family_name, birth_date, death_date, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-			author.id, author.first_name, author.family_name, author.birth_date, author.death_date, author.created_at, author.updated_at)
+			"INSERT INTO authors(id, full_name, birth_date, death_date, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
+			author.id, author.full_name, author.birth_date, author.death_date, author.created_at, author.updated_at)
 	}
 }
 
@@ -90,7 +88,7 @@ func GetDbAuthors(t *testing.T, db *sql.DB) []Author {
 
 	for rows.Next() {
 		a := Author{}
-		err := rows.Scan(&a.first_name, &a.family_name, &a.birth_date, &a.death_date, &a.created_at, &a.updated_at)
+		err := rows.Scan(&a.full_name, &a.birth_date, &a.death_date, &a.created_at, &a.updated_at)
 		if err != nil {
 			log.Fatal("Error scanning row:", err)
 		}
@@ -121,10 +119,9 @@ func TestCreateAuthor_Success(t *testing.T) {
 	defer server.Close()
 
 	request := map[string]string{
-		"first_name":  "Leo",
-		"family_name": "Tolstoy",
-		"birth_date":  "09.09.1828",
-		"death_date":  "20.11.1910",
+		"full_name":  "Leo Tolstoy",
+		"birth_date": "09.09.1828",
+		"death_date": "20.11.1910",
 	}
 	body, _ := json.Marshal(request)
 
@@ -148,8 +145,7 @@ func TestCreateAuthor_EmptyDates(t *testing.T) {
 	defer server.Close()
 
 	request := map[string]string{
-		"first_name":  "Leo",
-		"family_name": "Tolstoy",
+		"full_name": "Leo Tolstoy",
 	}
 	body, _ := json.Marshal(request)
 
@@ -184,9 +180,9 @@ func TestGetAuthors_Success(t *testing.T) {
 	defer db.Close()
 	cleanupDB(db)
 	db_authors := []Author{
-		{id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", first_name: "Alexander", family_name: "Pushkin"},
-		{id: "0254a622-68fd-4812-a0bc-d997bbe3a731", first_name: "Leo", family_name: "Tolstoy"},
-		{id: "1a05bda1-266c-4226-a662-51cbc60ddc86", first_name: "Fyodor", family_name: "Dostoevsky"},
+		{id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", full_name: "Alexander Pushkin"},
+		{id: "0254a622-68fd-4812-a0bc-d997bbe3a731", full_name: "Leo Tolstoy"},
+		{id: "1a05bda1-266c-4226-a662-51cbc60ddc86", full_name: "Fyodor Dostoevsky"},
 	}
 	AddAuthorsDB(db, db_authors)
 
@@ -200,13 +196,16 @@ func TestGetAuthors_Success(t *testing.T) {
 
 	decoder := json.NewDecoder(response.Body)
 	type responseAuthor struct {
-		Name string `json:"name"`
-		Id   string `json:"id"`
+		FullName string `json:"full_name"`
+		Id       string `json:"id"`
 	}
 	response_body := make([]responseAuthor, 0)
 	err = decoder.Decode(&response_body)
 	assert.NoError(t, err)
-	assert.Equal(t, response_body, []responseAuthor{{Name: "Fyodor Dostoevsky", Id: "1a05bda1-266c-4226-a662-51cbc60ddc86"}, {Name: "Alexander Pushkin", Id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea"}, {Name: "Leo Tolstoy", Id: "0254a622-68fd-4812-a0bc-d997bbe3a731"}})
+	assert.Equal(t, response_body, []responseAuthor{
+		{FullName: "Alexander Pushkin", Id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea"},
+		{FullName: "Fyodor Dostoevsky", Id: "1a05bda1-266c-4226-a662-51cbc60ddc86"},
+		{FullName: "Leo Tolstoy", Id: "0254a622-68fd-4812-a0bc-d997bbe3a731"}})
 }
 
 func TestGetAuthors_NotFound(t *testing.T) {
@@ -230,7 +229,7 @@ func TestGetAuthorsId_Success(t *testing.T) {
 	defer db.Close()
 	cleanupDB(db)
 	author := Author{
-		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", first_name: "Alexander", family_name: "Pushkin", birth_date: toSqlNullTime("06.06.1799"), death_date: toSqlNullTime("10.20.1837"),
+		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", full_name: "Alexander Pushkin", birth_date: toSqlNullTime("06.06.1799"), death_date: toSqlNullTime("10.20.1837"),
 	}
 	AddAuthorsDB(db, []Author{author})
 
@@ -244,15 +243,14 @@ func TestGetAuthorsId_Success(t *testing.T) {
 
 	decoder := json.NewDecoder(response.Body)
 	type responseAuthor struct {
-		FirstName  string `json:"first_name"`
-		FamilyName string `json:"family_name"`
-		BirthDate  string `json:"birth_date,omitempty"`
-		DeathDate  string `json:"death_date,omitempty"`
+		FullName  string `json:"full_name"`
+		BirthDate string `json:"birth_date,omitempty"`
+		DeathDate string `json:"death_date,omitempty"`
 	}
 	response_body := responseAuthor{}
 	err = decoder.Decode(&response_body)
 	assert.NoError(t, err)
-	assert.Equal(t, response_body, responseAuthor{FirstName: author.first_name, FamilyName: author.family_name, BirthDate: author.birth_date.Time.Format(kTimeFormat), DeathDate: author.death_date.Time.Format(kTimeFormat)})
+	assert.Equal(t, response_body, responseAuthor{FullName: author.full_name, BirthDate: author.birth_date.Time.Format(kTimeFormat), DeathDate: author.death_date.Time.Format(kTimeFormat)})
 }
 
 func TestGetAuthorsId_NotFound(t *testing.T) {
@@ -293,7 +291,7 @@ func TestDeleteAuthorsId_Success(t *testing.T) {
 	defer db.Close()
 	cleanupDB(db)
 	author := Author{
-		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", first_name: "Alexander", family_name: "Pushkin", birth_date: toSqlNullTime("06.06.1799"), death_date: toSqlNullTime("10.20.1837"),
+		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", full_name: "Alexander Pushkin", birth_date: toSqlNullTime("06.06.1799"), death_date: toSqlNullTime("10.20.1837"),
 	}
 	AddAuthorsDB(db, []Author{author})
 
@@ -356,13 +354,12 @@ func TestUpdateAuthor_Success(t *testing.T) {
 	defer db.Close()
 	cleanupDB(db)
 	author := Author{
-		id:          "aeecbc4e-9547-4fce-88ac-4e739567a1ea",
-		first_name:  "Alexander",
-		family_name: "Pushkin",
-		birth_date:  toSqlNullTime("06.06.1799"),
-		death_date:  toSqlNullTime("10.20.1837"),
-		created_at:  time.Date(2025, 2, 3, 0, 0, 0, 0, time.UTC),
-		updated_at:  time.Date(2025, 2, 5, 0, 0, 0, 0, time.UTC),
+		id:         "aeecbc4e-9547-4fce-88ac-4e739567a1ea",
+		full_name:  "Alexander Pushkin",
+		birth_date: toSqlNullTime("06.06.1799"),
+		death_date: toSqlNullTime("10.20.1837"),
+		created_at: time.Date(2025, 2, 3, 0, 0, 0, 0, time.UTC),
+		updated_at: time.Date(2025, 2, 5, 0, 0, 0, 0, time.UTC),
 	}
 	AddAuthorsDB(db, []Author{author})
 
@@ -370,11 +367,10 @@ func TestUpdateAuthor_Success(t *testing.T) {
 	defer server.Close()
 
 	request_body := map[string]string{
-		"id":          author.id,
-		"first_name":  "Leo",
-		"family_name": "Tolstoy",
-		"birth_date":  "09.09.1828",
-		"death_date":  "20.11.1910",
+		"id":         author.id,
+		"full_name":  "Leo Tolstoy",
+		"birth_date": "09.09.1828",
+		"death_date": "20.11.1910",
 	}
 	body, _ := json.Marshal(request_body)
 
@@ -404,11 +400,10 @@ func TestUpdateAuthor_NotFoundAuthor(t *testing.T) {
 	defer server.Close()
 
 	request_body := map[string]string{
-		"id":          "aeecbc4e-9547-4fce-88ac-4e739567a1ea",
-		"first_name":  "Leo",
-		"family_name": "Tolstoy",
-		"birth_date":  "09.09.1828",
-		"death_date":  "20.11.1910",
+		"id":         "aeecbc4e-9547-4fce-88ac-4e739567a1ea",
+		"full_name":  "Leo Tolstoy",
+		"birth_date": "09.09.1828",
+		"death_date": "20.11.1910",
 	}
 	body, _ := json.Marshal(request_body)
 
@@ -435,11 +430,10 @@ func TestUpdateAuthor_InvalidId(t *testing.T) {
 	defer server.Close()
 
 	request_body := map[string]string{
-		"id":          "invalid_id",
-		"first_name":  "Leo",
-		"family_name": "Tolstoy",
-		"birth_date":  "09.09.1828",
-		"death_date":  "20.11.1910",
+		"id":         "invalid_id",
+		"full_name":  "Leo Tolstoy",
+		"birth_date": "09.09.1828",
+		"death_date": "20.11.1910",
 	}
 	body, _ := json.Marshal(request_body)
 

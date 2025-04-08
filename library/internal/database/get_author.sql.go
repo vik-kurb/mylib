@@ -13,25 +13,19 @@ import (
 )
 
 const getAuthor = `-- name: GetAuthor :one
-SELECT first_name, family_name, birth_date, death_date FROM authors
+SELECT full_name, birth_date, death_date FROM authors
 WHERE id = $1
 `
 
 type GetAuthorRow struct {
-	FirstName  string
-	FamilyName string
-	BirthDate  sql.NullTime
-	DeathDate  sql.NullTime
+	FullName  string
+	BirthDate sql.NullTime
+	DeathDate sql.NullTime
 }
 
 func (q *Queries) GetAuthor(ctx context.Context, id uuid.UUID) (GetAuthorRow, error) {
 	row := q.db.QueryRowContext(ctx, getAuthor, id)
 	var i GetAuthorRow
-	err := row.Scan(
-		&i.FirstName,
-		&i.FamilyName,
-		&i.BirthDate,
-		&i.DeathDate,
-	)
+	err := row.Scan(&i.FullName, &i.BirthDate, &i.DeathDate)
 	return i, err
 }

@@ -12,13 +12,12 @@ import (
 )
 
 const getAuthors = `-- name: GetAuthors :many
-SELECT id, first_name, family_name FROM authors
+SELECT id, full_name FROM authors
 `
 
 type GetAuthorsRow struct {
-	ID         uuid.UUID
-	FirstName  string
-	FamilyName string
+	ID       uuid.UUID
+	FullName string
 }
 
 func (q *Queries) GetAuthors(ctx context.Context) ([]GetAuthorsRow, error) {
@@ -30,7 +29,7 @@ func (q *Queries) GetAuthors(ctx context.Context) ([]GetAuthorsRow, error) {
 	var items []GetAuthorsRow
 	for rows.Next() {
 		var i GetAuthorsRow
-		if err := rows.Scan(&i.ID, &i.FirstName, &i.FamilyName); err != nil {
+		if err := rows.Scan(&i.ID, &i.FullName); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

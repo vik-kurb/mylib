@@ -12,11 +12,10 @@ import (
 )
 
 type Author struct {
-	ID         uuid.UUID
-	FirstName  string
-	FamilyName string
-	BirthDate  sql.NullTime
-	DeathDate  sql.NullTime
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID        uuid.UUID
+	FullName  string
+	BirthDate sql.NullTime
+	DeathDate sql.NullTime
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
