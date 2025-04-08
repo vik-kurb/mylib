@@ -3,8 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"mylib/internal/database"
-	"mylib/internal/server"
+	"library/internal/database"
+	"library/internal/server"
 	"net/http"
 	"os"
 

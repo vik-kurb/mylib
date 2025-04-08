@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"mylib/internal/database"
+	"library/internal/database"
 	"net/http"
 	"sort"
 	"time"

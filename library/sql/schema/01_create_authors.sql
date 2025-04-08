@@ -1,4 +1,6 @@
 -- +goose Up
+CREATE DATABASE library;
+
 CREATE TABLE IF NOT EXISTS authors(
     id UUID PRIMARY KEY,
     first_name TEXT NOT NULL,

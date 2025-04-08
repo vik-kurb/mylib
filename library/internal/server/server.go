@@ -1,7 +1,7 @@
 package server
 
 import (
-	"mylib/internal/database"
+	"library/internal/database"
 	"net/http"
 )
 
