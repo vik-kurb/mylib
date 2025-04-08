@@ -2,11 +2,11 @@ package main
 
 import (
 	"database/sql"
-	"library/internal/database"
-	"library/internal/server"
 	"log"
 	"net/http"
 	"os"
+	"users/internal/database"
+	"users/internal/server"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -25,7 +25,7 @@ func main() {
 	}
 
 	sm := http.NewServeMux()
-	apiCfg := server.ApiConfig{DB: database.New(db)}
+	apiCfg := server.ApiConfig{DB: database.New(db), AuthSecretKey: os.Getenv("AUTH_SECRET_KEY")}
 	server.Handle(sm, &apiCfg)
 
 	s := http.Server{
