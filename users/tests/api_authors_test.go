@@ -9,6 +9,7 @@ import (
 	"os"
 	"testing"
 	"time"
+	"users/internal/auth"
 	"users/internal/database"
 	"users/internal/server"
 
@@ -19,6 +20,7 @@ import (
 
 const (
 	apiUsersPath = "/api/users"
+	apiLoginPath = "/api/login"
 	selectUsers  = "SELECT login_name, email, birth_date, hashed_password, created_at, updated_at FROM users WHERE id = $1"
 	deleteUsers  = "DELETE FROM users"
 	timeFormat   = "02.01.2006"
@@ -175,4 +177,97 @@ func TestCreateUser_EmailExists(t *testing.T) {
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusConflict, response.StatusCode)
+}
+
+func TestLogin_Success(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	email := "some_email@email.com"
+	password := "some_password"
+	hash, _ := auth.HashPassword(password)
+	addDbUser(db, User{loginName: "login", email: email, birthDate: toSqlNullTime("09.05.1956"), hashedPassword: hash})
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	type requestBody struct {
+		Password string `json:"password"`
+		Email    string `json:"email"`
+	}
+	request := requestBody{Password: password, Email: email}
+	requestJson, _ := json.Marshal(request)
+
+	response, err := http.Post(server.URL+apiLoginPath, "application/json", bytes.NewBuffer(requestJson))
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	decoder := json.NewDecoder(response.Body)
+	type responseUser struct {
+		ID    string `json:"id"`
+		Token string `json:"token"`
+	}
+	responseBody := responseUser{}
+	err = decoder.Decode(&responseBody)
+	assert.NoError(t, err)
+	assert.NotEqual(t, responseBody.Token, "")
+
+	cookies := response.Cookies()
+	assert.Equal(t, len(cookies), 1)
+	cookie := cookies[0]
+	assert.Equal(t, cookie.Name, "refresh_token")
+	assert.NotEqual(t, cookie.Value, "")
+}
+
+func TestLogin_InvalidPassword(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	email := "some_email@email.com"
+	password := "some_password"
+	hash, _ := auth.HashPassword(password)
+	addDbUser(db, User{loginName: "login", email: email, birthDate: toSqlNullTime("09.05.1956"), hashedPassword: hash})
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	type requestBody struct {
+		Password string `json:"password"`
+		Email    string `json:"email"`
+	}
+	anotherPassword := "another_password"
+	request := requestBody{Password: anotherPassword, Email: email}
+	requestJson, _ := json.Marshal(request)
+
+	response, err := http.Post(server.URL+apiLoginPath, "application/json", bytes.NewBuffer(requestJson))
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
+}
+
+func TestLogin_NoUser(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	type requestBody struct {
+		Password string `json:"password"`
+		Email    string `json:"email"`
+	}
+	email := "some_email@email.com"
+	password := "some_password"
+	request := requestBody{Password: password, Email: email}
+	requestJson, _ := json.Marshal(request)
+
+	response, err := http.Post(server.URL+apiLoginPath, "application/json", bytes.NewBuffer(requestJson))
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }

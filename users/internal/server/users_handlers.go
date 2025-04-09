@@ -11,10 +11,14 @@ import (
 	"users/internal/database"
 
 	"log"
+
+	"github.com/google/uuid"
 )
 
 const (
-	dateFormat = "02.01.2006"
+	dateFormat            = "02.01.2006"
+	tokenExpiresIn        = time.Hour
+	refreshTokenExpiresIn = 30 * 24 * time.Hour
 )
 
 type userRequestBody struct {
@@ -36,78 +40,49 @@ func ToNullTime(s string) sql.NullTime {
 	return sql.NullTime{Time: t, Valid: true}
 }
 
-func validateUserData(request userRequestBody) error {
+func validateUserData(cfg *ApiConfig, r *http.Request, requestBody userRequestBody) (int, error) {
 	const minLoginLen = 3
-	if len(request.LoginName) < minLoginLen {
-		return errors.New("login name is too short")
+	if len(requestBody.LoginName) < minLoginLen {
+		return http.StatusBadRequest, errors.New("login name is too short")
 	}
-	if !strings.Contains(request.Email, "@") {
-		return errors.New("invalid email")
+	if !strings.Contains(requestBody.Email, "@") {
+		return http.StatusBadRequest, errors.New("invalid email")
 	}
 	const minPasswordLen = 5
-	if len(request.Password) < minPasswordLen {
-		return errors.New("password is too short")
-	}
-	return nil
-}
-
-func (cfg *ApiConfig) HandlePostApiUsers(w http.ResponseWriter, r *http.Request) {
-	decoder := json.NewDecoder(r.Body)
-	request := userRequestBody{}
-	requestErr := decoder.Decode(&request)
-	if requestErr != nil {
-		respondWithError(w, http.StatusBadRequest, requestErr.Error())
-		return
-	}
-	validateErr := validateUserData(request)
-	if validateErr != nil {
-		respondWithError(w, http.StatusBadRequest, validateErr.Error())
-		return
+	if len(requestBody.Password) < minPasswordLen {
+		return http.StatusBadRequest, errors.New("password is too short")
 	}
 
-	rows, getUserErr := cfg.DB.GetUser(r.Context(), database.GetUserParams{LoginName: request.LoginName, Email: request.Email})
+	rows, getUserErr := cfg.DB.GetUser(r.Context(), database.GetUserParams{LoginName: requestBody.LoginName, Email: requestBody.Email})
 	if getUserErr != nil {
-		respondWithError(w, http.StatusInternalServerError, getUserErr.Error())
-		return
+		return http.StatusInternalServerError, getUserErr
 	}
 	for _, row := range rows {
-		if row.Email == request.Email {
-			respondWithError(w, http.StatusConflict, "User with this email already exists")
-			return
+		if row.Email == requestBody.Email {
+			return http.StatusConflict, errors.New("user with this email already exists")
 		}
-		if row.LoginName == request.LoginName {
-			respondWithError(w, http.StatusConflict, "User with this login already exists")
-			return
+		if row.LoginName == requestBody.LoginName {
+			return http.StatusConflict, errors.New("user with this login already exists")
 		}
 	}
 
-	hashedPassword, hashErr := auth.HashPassword(request.Password)
-	if hashErr != nil {
-		respondWithError(w, http.StatusInternalServerError, hashErr.Error())
-		return
-	}
+	return 0, nil
+}
 
-	user_id, userErr := cfg.DB.CreateUser(r.Context(), database.CreateUserParams{LoginName: request.LoginName, Email: request.Email, BirthDate: ToNullTime(request.BirthDate), HashedPassword: hashedPassword})
-	if userErr != nil {
-		respondWithError(w, http.StatusInternalServerError, userErr.Error())
-		return
-	}
-
-	const tokenExpiresIn = time.Hour
-	accessToken, accessTokenErr := auth.MakeJWT(user_id, cfg.AuthSecretKey, tokenExpiresIn)
+func makeTokensAndRespond(w http.ResponseWriter, r *http.Request, cfg *ApiConfig, userID uuid.UUID, status int) {
+	accessToken, accessTokenErr := auth.MakeJWT(userID, cfg.AuthSecretKey, tokenExpiresIn)
 	if accessTokenErr != nil {
 		respondWithError(w, http.StatusInternalServerError, accessTokenErr.Error())
 		return
 	}
 
+	expiresAt := time.Now().Add(refreshTokenExpiresIn)
 	refreshToken, refreshTokenErr := auth.MakeRefreshToken()
 	if refreshTokenErr != nil {
 		respondWithError(w, http.StatusInternalServerError, refreshTokenErr.Error())
 		return
 	}
-	const refreshTokenExpiresIn = 30 * 24 * time.Hour
-	expiresAt := time.Now().Add(refreshTokenExpiresIn)
-	saveTokenErr := cfg.DB.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{Token: refreshToken, UserID: user_id, ExpiresAt: expiresAt})
+	saveTokenErr := cfg.DB.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{Token: refreshToken, UserID: userID, ExpiresAt: expiresAt})
 	if saveTokenErr != nil {
 		respondWithError(w, http.StatusInternalServerError, saveTokenErr.Error())
 		return
@@ -127,5 +102,65 @@ func (cfg *ApiConfig) HandlePostApiUsers(w http.ResponseWriter, r *http.Request)
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	}
-	respondWithJSON(w, http.StatusCreated, responseBody{ID: user_id.String(), Token: accessToken}, &cookie)
+	respondWithJSON(w, status, responseBody{ID: userID.String(), Token: accessToken}, &cookie)
+}
+
+func (cfg *ApiConfig) HandlePostApiUsers(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	request := userRequestBody{}
+	requestErr := decoder.Decode(&request)
+	if requestErr != nil {
+		respondWithError(w, http.StatusBadRequest, requestErr.Error())
+		return
+	}
+	code, validateErr := validateUserData(cfg, r, request)
+	if validateErr != nil {
+		respondWithError(w, code, validateErr.Error())
+		return
+	}
+
+	hashedPassword, hashErr := auth.HashPassword(request.Password)
+	if hashErr != nil {
+		respondWithError(w, http.StatusInternalServerError, hashErr.Error())
+		return
+	}
+
+	userID, userErr := cfg.DB.CreateUser(r.Context(), database.CreateUserParams{LoginName: request.LoginName, Email: request.Email, BirthDate: ToNullTime(request.BirthDate), HashedPassword: hashedPassword})
+	if userErr != nil {
+		respondWithError(w, http.StatusInternalServerError, userErr.Error())
+		return
+	}
+
+	makeTokensAndRespond(w, r, cfg, userID, http.StatusCreated)
+}
+
+func (cfg *ApiConfig) HandlePostApiLogin(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	type requestBody struct {
+		Password string `json:"password"`
+		Email    string `json:"email"`
+	}
+	request := requestBody{}
+	requestErr := decoder.Decode(&request)
+	if requestErr != nil {
+		respondWithError(w, http.StatusBadRequest, requestErr.Error())
+	}
+
+	user, getUserErr := cfg.DB.GetUserByEmail(r.Context(), request.Email)
+	if getUserErr != nil {
+		if getUserErr == sql.ErrNoRows {
+			respondWithError(w, http.StatusNotFound, "Not found user")
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, getUserErr.Error())
+		return
+	}
+
+	checkPasswErr := auth.CheckPasswordHash(user.HashedPassword, request.Password)
+	if checkPasswErr != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid password")
+		return
+	}
+
+	makeTokensAndRespond(w, r, cfg, user.ID, http.StatusOK)
 }

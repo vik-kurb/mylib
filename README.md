@@ -1,7 +1,8 @@
 # mylib
 
+
 ## library
-Microservice that stores books' and authors' data. API:
+Microservice that stores books and authors data. API:
 
 ### POST /api/authors
 Creates new author
@@ -10,13 +11,17 @@ Creates new author
 Gets all authors with short info
 
 ### GET /api/authors/{id}
-Gets an author's full info
+Gets an author full info
 
 ### DELETE /admin/authors/{id}
 Deletes an author
 
 ### PUT /api/authors
-Update an author's info
+Update an author info
+
 
 ## users
-Microservice that stores users' data. API:
+Microservice that stores users data. API:
+
+### POST /api/users
+Creates new user

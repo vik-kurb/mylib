@@ -12,4 +12,5 @@ type ApiConfig struct {
 
 func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
 	sm.HandleFunc("POST /api/users", apiCfg.HandlePostApiUsers)
+	sm.HandleFunc("POST /api/login", apiCfg.HandlePostApiLogin)
 }
