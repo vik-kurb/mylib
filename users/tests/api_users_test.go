@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -23,6 +22,7 @@ const (
 	apiUsersPath       = "/api/users"
 	apiLoginPath       = "/api/login"
 	apiRefreshPath     = "/api/refresh"
+	apiRevokePath      = "/api/revoke"
 	selectUsers        = "SELECT login_name, email, birth_date, hashed_password, created_at, updated_at FROM users WHERE id = $1"
 	deleteUsers        = "DELETE FROM users"
 	insertUser         = "INSERT INTO users(id, login_name, email, birth_date, hashed_password) VALUES (gen_random_uuid(), $1, $2, $3, $4) RETURNING id"
@@ -89,7 +89,6 @@ func addDBUser(db *sql.DB, user User) string {
 func addDBToken(db *sql.DB, refreshToken RefreshToken) string {
 	row := db.QueryRow(
 		insertRefreshToken, refreshToken.userId, refreshToken.expiresAt, refreshToken.revokedAt)
-	log.Print("db error: ", row.Err())
 	token := ""
 	row.Scan(&token)
 	return token
@@ -319,10 +318,8 @@ func TestRefresh_Success(t *testing.T) {
 	defer db.Close()
 	cleanupDB(db)
 	user_id := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
-	log.Print("user_id = ", user_id)
 	expiresAt := time.Now().Add(time.Hour)
 	token := addDBToken(db, RefreshToken{userId: user_id, expiresAt: expiresAt})
-	log.Print("token = ", token)
 
 	server := setupTestServer(db)
 	defer server.Close()
@@ -367,5 +364,143 @@ func TestRefresh_Success(t *testing.T) {
 	assert.False(t, newRefreshToken.revokedAt.Valid)
 
 	oldRefreshToken := getDbToken(db, token)
-	assert.NotEqual(t, oldRefreshToken.revokedAt, nil)
+	assert.True(t, oldRefreshToken.revokedAt.Valid)
+}
+
+func TestRefresh_NoCookie(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	user_id := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
+	expiresAt := time.Now().Add(time.Hour)
+	addDBToken(db, RefreshToken{userId: user_id, expiresAt: expiresAt})
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	request, requestErr := http.NewRequest("POST", server.URL+apiRefreshPath, nil)
+	assert.NoError(t, requestErr)
+
+	client := &http.Client{}
+	client.Do(request)
+	response, responseErr := client.Do(request)
+	assert.NoError(t, responseErr)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
+}
+
+func TestRefresh_UnknownToken(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	request, requestErr := http.NewRequest("POST", server.URL+apiRefreshPath, nil)
+	assert.NoError(t, requestErr)
+	request.AddCookie(&http.Cookie{
+		Name:     cookieRefreshToken,
+		Value:    "4500f6128a7209ebdc18de559daf74f5",
+		Path:     "/",
+		Expires:  time.Now().Add(time.Hour),
+		Secure:   false,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
+}
+
+func TestRevoke_Success(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	user_id := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
+	expiresAt := time.Now().Add(time.Hour)
+	token := addDBToken(db, RefreshToken{userId: user_id, expiresAt: expiresAt})
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	request, requestErr := http.NewRequest("POST", server.URL+apiRevokePath, nil)
+	assert.NoError(t, requestErr)
+	request.AddCookie(&http.Cookie{
+		Name:     cookieRefreshToken,
+		Value:    token,
+		Path:     "/",
+		Expires:  expiresAt,
+		Secure:   false,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusNoContent, response.StatusCode)
+
+	oldRefreshToken := getDbToken(db, token)
+	assert.True(t, oldRefreshToken.revokedAt.Valid)
+}
+
+func TestRevoke_NoCookie(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	user_id := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
+	expiresAt := time.Now().Add(time.Hour)
+	token := addDBToken(db, RefreshToken{userId: user_id, expiresAt: expiresAt})
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	request, requestErr := http.NewRequest("POST", server.URL+apiRevokePath, nil)
+	assert.NoError(t, requestErr)
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
+
+	oldRefreshToken := getDbToken(db, token)
+	assert.False(t, oldRefreshToken.revokedAt.Valid)
+}
+
+func TestRevoke_UnknownToken(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	request, requestErr := http.NewRequest("POST", server.URL+apiRevokePath, nil)
+	assert.NoError(t, requestErr)
+	request.AddCookie(&http.Cookie{
+		Name:     cookieRefreshToken,
+		Value:    "4500f6128a7209ebdc18de559daf74f5",
+		Path:     "/",
+		Expires:  time.Now().Add(time.Hour),
+		Secure:   false,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusNoContent, response.StatusCode)
 }

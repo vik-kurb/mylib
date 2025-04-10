@@ -151,6 +151,7 @@ func (cfg *ApiConfig) HandlePostApiLogin(w http.ResponseWriter, r *http.Request)
 	requestErr := decoder.Decode(&request)
 	if requestErr != nil {
 		respondWithError(w, http.StatusBadRequest, requestErr.Error())
+		return
 	}
 
 	user, getUserErr := cfg.DB.GetUserByEmail(r.Context(), request.Email)
@@ -174,8 +175,9 @@ func (cfg *ApiConfig) HandlePostApiLogin(w http.ResponseWriter, r *http.Request)
 
 func (cfg *ApiConfig) HandlePostApiRefresh(w http.ResponseWriter, r *http.Request) {
 	cookie, cookieErr := r.Cookie(refreshTokenName)
-	if cookieErr != nil {
-		respondWithError(w, http.StatusBadRequest, cookieErr.Error())
+	if cookieErr != nil || cookie == nil {
+		respondWithError(w, http.StatusUnauthorized, "No refresh token in cookie")
+		return
 	}
 	refreshToken := cookie.Value
 
@@ -192,4 +194,15 @@ func (cfg *ApiConfig) HandlePostApiRefresh(w http.ResponseWriter, r *http.Reques
 	revokeRefreshToken(cfg, r, refreshToken)
 
 	makeTokensAndRespond(w, r, cfg, user_id, http.StatusOK)
+}
+
+func (cfg *ApiConfig) HandlePostApiRevoke(w http.ResponseWriter, r *http.Request) {
+	cookie, cookieErr := r.Cookie(refreshTokenName)
+	if cookieErr != nil || cookie == nil {
+		respondWithError(w, http.StatusUnauthorized, "No refresh token in cookie")
+		return
+	}
+
+	revokeRefreshToken(cfg, r, cookie.Value)
+	w.WriteHeader(http.StatusNoContent)
 }
