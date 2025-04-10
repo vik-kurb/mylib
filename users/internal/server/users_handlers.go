@@ -19,6 +19,7 @@ const (
 	dateFormat            = "02.01.2006"
 	tokenExpiresIn        = time.Hour
 	refreshTokenExpiresIn = 30 * 24 * time.Hour
+	refreshTokenName      = "refresh_token"
 )
 
 type userRequestBody struct {
@@ -92,7 +93,6 @@ func makeTokensAndRespond(w http.ResponseWriter, r *http.Request, cfg *ApiConfig
 		ID    string `json:"id"`
 		Token string `json:"token"`
 	}
-	const refreshTokenName = "refresh_token"
 	cookie := http.Cookie{
 		Name:     refreshTokenName,
 		Value:    refreshToken,
@@ -103,6 +103,13 @@ func makeTokensAndRespond(w http.ResponseWriter, r *http.Request, cfg *ApiConfig
 		SameSite: http.SameSiteLaxMode,
 	}
 	respondWithJSON(w, status, responseBody{ID: userID.String(), Token: accessToken}, &cookie)
+}
+
+func revokeRefreshToken(cfg *ApiConfig, r *http.Request, refreshToken string) {
+	err := cfg.DB.RevokeRefreshToken(r.Context(), refreshToken)
+	if err != nil {
+		log.Print("Failed to revoke refresh token: ", err)
+	}
 }
 
 func (cfg *ApiConfig) HandlePostApiUsers(w http.ResponseWriter, r *http.Request) {
@@ -163,4 +170,26 @@ func (cfg *ApiConfig) HandlePostApiLogin(w http.ResponseWriter, r *http.Request)
 	}
 
 	makeTokensAndRespond(w, r, cfg, user.ID, http.StatusOK)
+}
+
+func (cfg *ApiConfig) HandlePostApiRefresh(w http.ResponseWriter, r *http.Request) {
+	cookie, cookieErr := r.Cookie(refreshTokenName)
+	if cookieErr != nil {
+		respondWithError(w, http.StatusBadRequest, cookieErr.Error())
+	}
+	refreshToken := cookie.Value
+
+	user_id, getUserErr := cfg.DB.GetUserByRefreshToken(r.Context(), refreshToken)
+	if getUserErr != nil {
+		if getUserErr == sql.ErrNoRows {
+			respondWithError(w, http.StatusUnauthorized, "Not found user")
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, getUserErr.Error())
+		return
+	}
+
+	revokeRefreshToken(cfg, r, refreshToken)
+
+	makeTokensAndRespond(w, r, cfg, user_id, http.StatusOK)
 }
