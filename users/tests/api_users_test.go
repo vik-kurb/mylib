@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -47,6 +49,12 @@ type RefreshToken struct {
 	userId    string
 	expiresAt time.Time
 	revokedAt sql.NullTime
+}
+
+type ResponseUser struct {
+	Login     string `json:"login"`
+	Email     string `json:"email,omitempty"`
+	BirthDate string `json:"birth_date,omitempty"`
 }
 
 func setupTestDB() (*sql.DB, error) {
@@ -112,6 +120,13 @@ func toSqlNullTime(s string) sql.NullTime {
 		return sql.NullTime{}
 	}
 	return sql.NullTime{Time: t, Valid: true}
+}
+
+func getUserFromResponse(response *http.Response) ResponseUser {
+	body, _ := io.ReadAll(response.Body)
+	responseData := ResponseUser{}
+	json.Unmarshal(body, &responseData)
+	return responseData
 }
 
 func TestCreateUser_Success(t *testing.T) {
@@ -606,4 +621,89 @@ func TestUpdateUser_NoToken(t *testing.T) {
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
+}
+
+func TestGetUser_AuthorizedAsRequestUser(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	user := User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"}
+	userID := addDBUser(db, user)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	request, requestErr := http.NewRequest("GET", fmt.Sprintf("%v%v/{%v}", server.URL, apiUsersPath, userID), nil)
+	assert.NoError(t, requestErr)
+	uuid, _ := uuid.Parse(userID)
+	accessToken, _ := auth.MakeJWT(uuid, authSecretKey, time.Hour)
+	request.Header.Add("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	responseUser := getUserFromResponse(response)
+	assert.Equal(t, responseUser.Login, user.loginName)
+	assert.Equal(t, responseUser.Email, user.email)
+	assert.Equal(t, responseUser.BirthDate, user.birthDate.Time.Format(timeFormat))
+}
+
+func TestGetUser_AuthorizedAsAnotherUser(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	user := User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"}
+	userID := addDBUser(db, user)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	request, requestErr := http.NewRequest("GET", fmt.Sprintf("%v%v/{%v}", server.URL, apiUsersPath, userID), nil)
+	assert.NoError(t, requestErr)
+	anotherUserId := "4fc40366-ff15-4653-be30-1bba21f016c1"
+	uuid, _ := uuid.Parse(anotherUserId)
+	accessToken, _ := auth.MakeJWT(uuid, authSecretKey, time.Hour)
+	request.Header.Add("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	responseUser := getUserFromResponse(response)
+	assert.Equal(t, responseUser.Login, user.loginName)
+	assert.Equal(t, responseUser.Email, "")
+	assert.Equal(t, responseUser.BirthDate, "")
+}
+
+func TestGetUser_NonAuthorized(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	user := User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"}
+	userID := addDBUser(db, user)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	request, requestErr := http.NewRequest("GET", fmt.Sprintf("%v%v/{%v}", server.URL, apiUsersPath, userID), nil)
+	assert.NoError(t, requestErr)
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	responseUser := getUserFromResponse(response)
+	assert.Equal(t, responseUser.Login, user.loginName)
+	assert.Equal(t, responseUser.Email, "")
+	assert.Equal(t, responseUser.BirthDate, "")
 }

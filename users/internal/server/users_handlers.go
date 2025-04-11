@@ -246,3 +246,51 @@ func (cfg *ApiConfig) HandlePutApiUsers(w http.ResponseWriter, r *http.Request) 
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func getAuthUser(cfg *ApiConfig, r *http.Request) *uuid.UUID {
+	token, tokenErr := auth.GetBearerToken(r.Header)
+	if tokenErr != nil {
+		return nil
+	}
+	userID, authErr := auth.ValidateJWT(token, cfg.AuthSecretKey)
+	if authErr != nil {
+		return nil
+	}
+	return &userID
+}
+
+func (cfg *ApiConfig) HandleGetApiUsers(w http.ResponseWriter, r *http.Request) {
+	requestUserID := r.PathValue("userID")
+	if len(requestUserID) == 0 {
+		respondWithError(w, http.StatusBadRequest, "No user id in request")
+		return
+	}
+	requestUserUUID, err := uuid.Parse(requestUserID)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid user id")
+		return
+	}
+
+	authUserIdPtr := getAuthUser(cfg, r)
+	cfg.DB.GetUser(r.Context(), database.GetUserParams{})
+
+	user, userErr := cfg.DB.GetUserById(r.Context(), requestUserUUID)
+	if userErr != nil {
+		respondWithError(w, http.StatusNotFound, userErr.Error())
+		return
+	}
+
+	type responseBody struct {
+		LoginName string `json:"login"`
+		Email     string `json:"email"`
+		BirthDate string `json:"birth_date"`
+	}
+	response := responseBody{LoginName: user.LoginName}
+	if authUserIdPtr != nil && *authUserIdPtr == requestUserUUID {
+		if user.BirthDate.Valid {
+			response.BirthDate = user.BirthDate.Time.Format(dateFormat)
+		}
+		response.Email = user.Email
+	}
+	respondWithJSON(w, http.StatusOK, response, nil)
+}
