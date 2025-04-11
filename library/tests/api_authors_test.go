@@ -5,26 +5,23 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"library/internal/database"
-	"library/internal/server"
 	"log"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/joho/godotenv"
+	"github.com/bakurvik/mylib/common"
+	"github.com/bakurvik/mylib/library/internal/database"
+	"github.com/bakurvik/mylib/library/internal/server"
+
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	kApiAuthorsPath   = "/api/authors"
-	kAdminAuthorsPath = "/admin/authors"
-	kSelectAuthors    = "SELECT full_name, birth_date, death_date, created_at, updated_at FROM authors"
-	kDeleteAuthors    = "TRUNCATE authors"
-	kTimeFormat       = "02.01.2006"
+	kSelectAuthors = "SELECT full_name, birth_date, death_date, created_at, updated_at FROM authors"
+	kDeleteAuthors = "TRUNCATE authors"
 )
 
 type Author struct {
@@ -40,7 +37,7 @@ func assertDateEqual(t *testing.T, time_date sql.NullTime, expected_data map[str
 	expected_date, ok := expected_data[key]
 	assert.Equal(t, ok, time_date.Valid)
 	if ok {
-		assert.Equal(t, time_date.Time.Format(kTimeFormat), expected_date)
+		assert.Equal(t, time_date.Time.Format(common.DateFormat), expected_date)
 	}
 }
 
@@ -48,15 +45,6 @@ func assertEqual(t *testing.T, author Author, expected_data map[string]string) {
 	assert.Equal(t, author.full_name, expected_data["full_name"])
 	assertDateEqual(t, author.birth_date, expected_data, "birth_date")
 	assertDateEqual(t, author.death_date, expected_data, "death_date")
-}
-
-func setupTestDB() (*sql.DB, error) {
-	err := godotenv.Load("../.env")
-	if err != nil {
-		return nil, err
-	}
-	db_url := os.Getenv("TEST_DB_URL")
-	return sql.Open("postgres", db_url)
 }
 
 func cleanupDB(db *sql.DB) {
@@ -101,22 +89,14 @@ func GetDbAuthors(t *testing.T, db *sql.DB) []Author {
 	return authors
 }
 
-func toSqlNullTime(s string) sql.NullTime {
-	t, err := time.Parse(kTimeFormat, s)
-	if err != nil {
-		return sql.NullTime{}
-	}
-	return sql.NullTime{Time: t, Valid: true}
-}
-
 func TestCreateAuthor_Success(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
 	request := map[string]string{
 		"full_name":  "Leo Tolstoy",
@@ -125,7 +105,7 @@ func TestCreateAuthor_Success(t *testing.T) {
 	}
 	body, _ := json.Marshal(request)
 
-	response, err := http.Post(server.URL+kApiAuthorsPath, "application/json", bytes.NewBuffer(body))
+	response, err := http.Post(s.URL+server.ApiAuthorsPath, "application/json", bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusCreated, response.StatusCode)
@@ -136,20 +116,20 @@ func TestCreateAuthor_Success(t *testing.T) {
 }
 
 func TestCreateAuthor_EmptyDates(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
 	request := map[string]string{
 		"full_name": "Leo Tolstoy",
 	}
 	body, _ := json.Marshal(request)
 
-	response, err := http.Post(server.URL+kApiAuthorsPath, "application/json", bytes.NewBuffer(body))
+	response, err := http.Post(s.URL+server.ApiAuthorsPath, "application/json", bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusCreated, response.StatusCode)
@@ -160,22 +140,22 @@ func TestCreateAuthor_EmptyDates(t *testing.T) {
 }
 
 func TestCreateAuthor_BadRequest(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	response, err := http.Post(server.URL+kApiAuthorsPath, "application/json", bytes.NewBuffer([]byte("{}")))
+	response, err := http.Post(s.URL+server.ApiAuthorsPath, "application/json", bytes.NewBuffer([]byte("{}")))
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 }
 
 func TestGetAuthors_Success(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
@@ -186,10 +166,10 @@ func TestGetAuthors_Success(t *testing.T) {
 	}
 	AddAuthorsDB(db, db_authors)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	response, err := http.Get(server.URL + kApiAuthorsPath)
+	response, err := http.Get(s.URL + server.ApiAuthorsPath)
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusOK, response.StatusCode)
@@ -209,34 +189,34 @@ func TestGetAuthors_Success(t *testing.T) {
 }
 
 func TestGetAuthors_NotFound(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	response, err := http.Get(server.URL + kApiAuthorsPath)
+	response, err := http.Get(s.URL + server.ApiAuthorsPath)
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
 func TestGetAuthorsId_Success(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 	author := Author{
-		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", full_name: "Alexander Pushkin", birth_date: toSqlNullTime("06.06.1799"), death_date: toSqlNullTime("10.20.1837"),
+		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", full_name: "Alexander Pushkin", birth_date: common.ToNullTime("06.06.1799"), death_date: common.ToNullTime("10.20.1837"),
 	}
 	AddAuthorsDB(db, []Author{author})
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", server.URL, kApiAuthorsPath, author.id))
+	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiAuthorsPath, author.id))
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusOK, response.StatusCode)
@@ -250,56 +230,56 @@ func TestGetAuthorsId_Success(t *testing.T) {
 	response_body := responseAuthor{}
 	err = decoder.Decode(&response_body)
 	assert.NoError(t, err)
-	assert.Equal(t, response_body, responseAuthor{FullName: author.full_name, BirthDate: author.birth_date.Time.Format(kTimeFormat), DeathDate: author.death_date.Time.Format(kTimeFormat)})
+	assert.Equal(t, response_body, responseAuthor{FullName: author.full_name, BirthDate: author.birth_date.Time.Format(common.DateFormat), DeathDate: author.death_date.Time.Format(common.DateFormat)})
 }
 
 func TestGetAuthorsId_NotFound(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
 	id := "aeecbc4e-9547-4fce-88ac-4e739567a1ea"
-	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", server.URL, kApiAuthorsPath, id))
+	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiAuthorsPath, id))
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
 func TestGetAuthorsId_InvalidId(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
 	id := "invalid_uuid"
-	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", server.URL, kApiAuthorsPath, id))
+	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiAuthorsPath, id))
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 }
 
 func TestDeleteAuthorsId_Success(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 	author := Author{
-		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", full_name: "Alexander Pushkin", birth_date: toSqlNullTime("06.06.1799"), death_date: toSqlNullTime("10.20.1837"),
+		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", full_name: "Alexander Pushkin", birth_date: common.ToNullTime("06.06.1799"), death_date: common.ToNullTime("10.20.1837"),
 	}
 	AddAuthorsDB(db, []Author{author})
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
 	client := &http.Client{}
-	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", server.URL, kAdminAuthorsPath, author.id), nil)
+	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminAuthorsPath, author.id), nil)
 	assert.NoError(t, err)
 
 	response, err := client.Do(request)
@@ -309,17 +289,17 @@ func TestDeleteAuthorsId_Success(t *testing.T) {
 }
 
 func TestDeleteAuthorsId_NoAuthor(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
 	client := &http.Client{}
 	id := "aeecbc4e-9547-4fce-88ac-4e739567a1ea"
-	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", server.URL, kAdminAuthorsPath, id), nil)
+	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminAuthorsPath, id), nil)
 	assert.NoError(t, err)
 
 	response, err := client.Do(request)
@@ -329,17 +309,17 @@ func TestDeleteAuthorsId_NoAuthor(t *testing.T) {
 }
 
 func TestDeleteAuthorsId_InvalidId(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
 	client := &http.Client{}
 	id := "invalud id"
-	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", server.URL, kAdminAuthorsPath, id), nil)
+	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminAuthorsPath, id), nil)
 	assert.NoError(t, err)
 
 	response, err := client.Do(request)
@@ -349,22 +329,22 @@ func TestDeleteAuthorsId_InvalidId(t *testing.T) {
 }
 
 func TestUpdateAuthor_Success(t *testing.T) {
-	db, db_err := setupTestDB()
+	db, db_err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, db_err)
 	defer db.Close()
 	cleanupDB(db)
 	author := Author{
 		id:         "aeecbc4e-9547-4fce-88ac-4e739567a1ea",
 		full_name:  "Alexander Pushkin",
-		birth_date: toSqlNullTime("06.06.1799"),
-		death_date: toSqlNullTime("10.20.1837"),
+		birth_date: common.ToNullTime("06.06.1799"),
+		death_date: common.ToNullTime("10.20.1837"),
 		created_at: time.Date(2025, 2, 3, 0, 0, 0, 0, time.UTC),
 		updated_at: time.Date(2025, 2, 5, 0, 0, 0, 0, time.UTC),
 	}
 	AddAuthorsDB(db, []Author{author})
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
 	request_body := map[string]string{
 		"id":         author.id,
@@ -375,7 +355,7 @@ func TestUpdateAuthor_Success(t *testing.T) {
 	body, _ := json.Marshal(request_body)
 
 	client := &http.Client{}
-	request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", server.URL, kApiAuthorsPath), bytes.NewBuffer(body))
+	request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", s.URL, server.ApiAuthorsPath), bytes.NewBuffer(body))
 	assert.NoError(t, err)
 
 	response, err := client.Do(request)
@@ -391,13 +371,13 @@ func TestUpdateAuthor_Success(t *testing.T) {
 }
 
 func TestUpdateAuthor_NotFoundAuthor(t *testing.T) {
-	db, db_err := setupTestDB()
+	db, db_err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, db_err)
 	defer db.Close()
 	cleanupDB(db)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
 	request_body := map[string]string{
 		"id":         "aeecbc4e-9547-4fce-88ac-4e739567a1ea",
@@ -408,7 +388,7 @@ func TestUpdateAuthor_NotFoundAuthor(t *testing.T) {
 	body, _ := json.Marshal(request_body)
 
 	client := &http.Client{}
-	request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", server.URL, kApiAuthorsPath), bytes.NewBuffer(body))
+	request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", s.URL, server.ApiAuthorsPath), bytes.NewBuffer(body))
 	assert.NoError(t, err)
 
 	response, err := client.Do(request)
@@ -421,13 +401,13 @@ func TestUpdateAuthor_NotFoundAuthor(t *testing.T) {
 }
 
 func TestUpdateAuthor_InvalidId(t *testing.T) {
-	db, db_err := setupTestDB()
+	db, db_err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, db_err)
 	defer db.Close()
 	cleanupDB(db)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
 	request_body := map[string]string{
 		"id":         "invalid_id",
@@ -438,7 +418,7 @@ func TestUpdateAuthor_InvalidId(t *testing.T) {
 	body, _ := json.Marshal(request_body)
 
 	client := &http.Client{}
-	request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", server.URL, kApiAuthorsPath), bytes.NewBuffer(body))
+	request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", s.URL, server.ApiAuthorsPath), bytes.NewBuffer(body))
 	assert.NoError(t, err)
 
 	response, err := client.Do(request)

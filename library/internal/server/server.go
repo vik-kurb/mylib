@@ -1,8 +1,15 @@
 package server
 
 import (
-	"library/internal/database"
+	"fmt"
 	"net/http"
+
+	"github.com/bakurvik/mylib/library/internal/database"
+)
+
+const (
+	ApiAuthorsPath   = "/api/authors"
+	AdminAuthorsPath = "/admin/authors"
 )
 
 type ApiConfig struct {
@@ -10,9 +17,9 @@ type ApiConfig struct {
 }
 
 func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
-	sm.HandleFunc("POST /api/authors", apiCfg.HandlePostApiAuthors)
-	sm.HandleFunc("GET /api/authors", apiCfg.HandleGetApiAuthors)
-	sm.HandleFunc("GET /api/authors/{id}", apiCfg.HandleGetApiAuthorsId)
-	sm.HandleFunc("DELETE /admin/authors/{id}", apiCfg.HandleDeleteAdminAuthors)
-	sm.HandleFunc("PUT /api/authors", apiCfg.HandlePutApiAuthors)
+	sm.HandleFunc("POST "+ApiAuthorsPath, apiCfg.HandlePostApiAuthors)
+	sm.HandleFunc("GET "+ApiAuthorsPath, apiCfg.HandleGetApiAuthors)
+	sm.HandleFunc(fmt.Sprintf("GET %v/{id}", ApiAuthorsPath), apiCfg.HandleGetApiAuthorsId)
+	sm.HandleFunc(fmt.Sprintf("DELETE %v/{id}", AdminAuthorsPath), apiCfg.HandleDeleteAdminAuthors)
+	sm.HandleFunc("PUT "+ApiAuthorsPath, apiCfg.HandlePutApiAuthors)
 }

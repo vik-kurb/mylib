@@ -1,27 +1,20 @@
 package main
 
 import (
-	"database/sql"
-	"library/internal/database"
-	"library/internal/server"
 	"log"
 	"net/http"
-	"os"
 
-	"github.com/joho/godotenv"
+	"github.com/bakurvik/mylib/common"
+	"github.com/bakurvik/mylib/library/internal/database"
+	"github.com/bakurvik/mylib/library/internal/server"
+
 	_ "github.com/lib/pq"
 )
 
 func main() {
-	env_err := godotenv.Load()
-	if env_err != nil {
-		log.Fatal("Failed loading env ", env_err)
-	}
-	db_url := os.Getenv("DB_URL")
-
-	db, sql_err := sql.Open("postgres", db_url)
-	if sql_err != nil {
-		log.Fatal("Failed SQL connect: ", sql_err)
+	db, err := common.SetupDB("./.env", "DB_URL")
+	if err != nil {
+		log.Fatal("Failed setup db ", err)
 	}
 
 	sm := http.NewServeMux()
@@ -32,8 +25,8 @@ func main() {
 		Addr:    ":8080",
 		Handler: sm,
 	}
-	err := s.ListenAndServe()
-	if err != nil {
-		log.Fatal("Failed starting server: ", err)
+	serverErr := s.ListenAndServe()
+	if serverErr != nil {
+		log.Fatal("Failed starting server: ", serverErr)
 	}
 }

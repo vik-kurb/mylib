@@ -1,4 +1,4 @@
-module users
+module github.com/bakurvik/mylib/users
 
 go 1.23.6
 
@@ -10,7 +10,10 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
+	github.com/bakurvik/mylib/common v0.0.0
 )
+
+replace github.com/bakurvik/mylib/common => ../common
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

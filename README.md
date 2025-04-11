@@ -25,3 +25,21 @@ Microservice that stores users data. API:
 
 ### POST /api/users
 Creates new user
+
+### POST /api/login
+Logins user
+
+### POST /api/refresh
+Refreshes access token
+
+### POST /api/revoke
+Revokes refresh token
+
+### PUT /api/users
+Update user info
+
+### GET /api/users/{id}
+Gets user info
+
+### DELETE /api/users
+Deletes user
