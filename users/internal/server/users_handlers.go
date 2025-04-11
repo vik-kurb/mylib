@@ -206,3 +206,43 @@ func (cfg *ApiConfig) HandlePostApiRevoke(w http.ResponseWriter, r *http.Request
 	revokeRefreshToken(cfg, r, cookie.Value)
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (cfg *ApiConfig) HandlePutApiUsers(w http.ResponseWriter, r *http.Request) {
+	token, tokenErr := auth.GetBearerToken(r.Header)
+	if tokenErr != nil {
+		respondWithError(w, http.StatusUnauthorized, tokenErr.Error())
+		return
+	}
+	userID, authErr := auth.ValidateJWT(token, cfg.AuthSecretKey)
+	if authErr != nil {
+		respondWithError(w, http.StatusUnauthorized, authErr.Error())
+		return
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	request := userRequestBody{}
+	requestErr := decoder.Decode(&request)
+	if requestErr != nil {
+		respondWithError(w, http.StatusBadRequest, requestErr.Error())
+		return
+	}
+	code, validateErr := validateUserData(cfg, r, request)
+	if validateErr != nil {
+		respondWithError(w, code, validateErr.Error())
+		return
+	}
+
+	hashedPassword, hashErr := auth.HashPassword(request.Password)
+	if hashErr != nil {
+		respondWithError(w, http.StatusInternalServerError, hashErr.Error())
+		return
+	}
+
+	_, userErr := cfg.DB.UpdateUser(r.Context(), database.UpdateUserParams{ID: userID, LoginName: request.LoginName, Email: request.Email, BirthDate: ToNullTime(request.BirthDate), HashedPassword: hashedPassword})
+	if userErr != nil {
+		respondWithError(w, http.StatusNotFound, userErr.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

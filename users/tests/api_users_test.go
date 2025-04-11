@@ -13,6 +13,7 @@ import (
 	"users/internal/database"
 	"users/internal/server"
 
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
@@ -30,6 +31,7 @@ const (
 	selectRefreshToken = "SELECT user_id, expires_at, revoked_at FROM refresh_tokens WHERE token = $1"
 	timeFormat         = "02.01.2006"
 	cookieRefreshToken = "refresh_token"
+	authSecretKey      = "secret_key"
 )
 
 type User struct {
@@ -61,7 +63,7 @@ func cleanupDB(db *sql.DB) {
 }
 
 func setupTestServer(db *sql.DB) *httptest.Server {
-	apiCfg := server.ApiConfig{DB: database.New(db)}
+	apiCfg := server.ApiConfig{DB: database.New(db), AuthSecretKey: authSecretKey}
 	sm := http.NewServeMux()
 	server.Handle(sm, &apiCfg)
 	return httptest.NewServer(sm)
@@ -81,9 +83,9 @@ func addDBUser(db *sql.DB, user User) string {
 	row := db.QueryRow(
 		insertUser,
 		user.loginName, user.email, user.birthDate, user.hashedPassword)
-	user_id := ""
-	row.Scan(&user_id)
-	return user_id
+	userID := ""
+	row.Scan(&userID)
+	return userID
 }
 
 func addDBToken(db *sql.DB, refreshToken RefreshToken) string {
@@ -317,9 +319,9 @@ func TestRefresh_Success(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
-	user_id := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
+	userID := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
 	expiresAt := time.Now().Add(time.Hour)
-	token := addDBToken(db, RefreshToken{userId: user_id, expiresAt: expiresAt})
+	token := addDBToken(db, RefreshToken{userId: userID, expiresAt: expiresAt})
 
 	server := setupTestServer(db)
 	defer server.Close()
@@ -360,7 +362,7 @@ func TestRefresh_Success(t *testing.T) {
 	assert.NotEqual(t, cookie.Value, token)
 
 	newRefreshToken := getDbToken(db, cookie.Value)
-	assert.Equal(t, newRefreshToken.userId, user_id)
+	assert.Equal(t, newRefreshToken.userId, userID)
 	assert.False(t, newRefreshToken.revokedAt.Valid)
 
 	oldRefreshToken := getDbToken(db, token)
@@ -372,9 +374,9 @@ func TestRefresh_NoCookie(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
-	user_id := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
+	userID := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
 	expiresAt := time.Now().Add(time.Hour)
-	addDBToken(db, RefreshToken{userId: user_id, expiresAt: expiresAt})
+	addDBToken(db, RefreshToken{userId: userID, expiresAt: expiresAt})
 
 	server := setupTestServer(db)
 	defer server.Close()
@@ -423,9 +425,9 @@ func TestRevoke_Success(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
-	user_id := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
+	userID := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
 	expiresAt := time.Now().Add(time.Hour)
-	token := addDBToken(db, RefreshToken{userId: user_id, expiresAt: expiresAt})
+	token := addDBToken(db, RefreshToken{userId: userID, expiresAt: expiresAt})
 
 	server := setupTestServer(db)
 	defer server.Close()
@@ -457,9 +459,9 @@ func TestRevoke_NoCookie(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
-	user_id := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
+	userID := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
 	expiresAt := time.Now().Add(time.Hour)
-	token := addDBToken(db, RefreshToken{userId: user_id, expiresAt: expiresAt})
+	token := addDBToken(db, RefreshToken{userId: userID, expiresAt: expiresAt})
 
 	server := setupTestServer(db)
 	defer server.Close()
@@ -503,4 +505,105 @@ func TestRevoke_UnknownToken(t *testing.T) {
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusNoContent, response.StatusCode)
+}
+
+func TestUpdateUser_Success(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	userID := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	type requestBody struct {
+		LoginName string `json:"login_name"`
+		Email     string `json:"email"`
+		BirthDate string `json:"birth_date,omitempty"`
+		Password  string `json:"password"`
+	}
+	newPassword := "another_password"
+	req := requestBody{LoginName: "another_login", Email: "another_login@email.ru", BirthDate: "10.05.2014", Password: newPassword}
+	requestJson, _ := json.Marshal(req)
+
+	request, requestErr := http.NewRequest("PUT", server.URL+apiUsersPath, bytes.NewBuffer(requestJson))
+	assert.NoError(t, requestErr)
+	uuid, _ := uuid.Parse(userID)
+	accessToken, _ := auth.MakeJWT(uuid, authSecretKey, time.Hour)
+	request.Header.Add("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusNoContent, response.StatusCode)
+
+	user := getDbUser(db, userID)
+
+	assert.Equal(t, user.loginName, req.LoginName)
+	assert.Equal(t, user.email, req.Email)
+	assert.Equal(t, user.birthDate.Time.Format(timeFormat), req.BirthDate)
+	assert.Equal(t, auth.CheckPasswordHash(user.hashedPassword, newPassword), nil)
+}
+
+func TestUpdateUser_InvalidToken(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	type requestBody struct {
+		LoginName string `json:"login_name"`
+		Email     string `json:"email"`
+		BirthDate string `json:"birth_date,omitempty"`
+		Password  string `json:"password"`
+	}
+	newPassword := "another_password"
+	req := requestBody{LoginName: "another_login", Email: "another_login@email.ru", BirthDate: "10.05.2014", Password: newPassword}
+	requestJson, _ := json.Marshal(req)
+
+	request, requestErr := http.NewRequest("PUT", server.URL+apiUsersPath, bytes.NewBuffer(requestJson))
+	assert.NoError(t, requestErr)
+	request.Header.Add("Authorization", "Bearer invalid_token")
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
+}
+
+func TestUpdateUser_NoToken(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	type requestBody struct {
+		LoginName string `json:"login_name"`
+		Email     string `json:"email"`
+		BirthDate string `json:"birth_date,omitempty"`
+		Password  string `json:"password"`
+	}
+	newPassword := "another_password"
+	req := requestBody{LoginName: "another_login", Email: "another_login@email.ru", BirthDate: "10.05.2014", Password: newPassword}
+	requestJson, _ := json.Marshal(req)
+
+	request, requestErr := http.NewRequest("PUT", server.URL+apiUsersPath, bytes.NewBuffer(requestJson))
+	assert.NoError(t, requestErr)
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 }
