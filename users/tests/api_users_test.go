@@ -184,7 +184,7 @@ func TestUpdateUser_Success(t *testing.T) {
 	assert.Equal(t, user.loginName, req.LoginName)
 	assert.Equal(t, user.email, req.Email)
 	assert.Equal(t, user.birthDate.Time.Format(timeFormat), req.BirthDate)
-	assert.Equal(t, auth.CheckPasswordHash(user.hashedPassword, newPassword), nil)
+	assert.Nil(t, auth.CheckPasswordHash(user.hashedPassword, newPassword))
 }
 
 func TestUpdateUser_InvalidToken(t *testing.T) {
@@ -307,7 +307,7 @@ func TestGetUser_AuthorizedAsAnotherUser(t *testing.T) {
 	assert.Equal(t, responseUser.BirthDate, "")
 }
 
-func TestGetUser_NonAuthorized(t *testing.T) {
+func TestGetUser_Unauthorized(t *testing.T) {
 	db, err := setupTestDB()
 	assert.NoError(t, err)
 	defer db.Close()
@@ -331,4 +331,50 @@ func TestGetUser_NonAuthorized(t *testing.T) {
 	assert.Equal(t, responseUser.Login, user.loginName)
 	assert.Equal(t, responseUser.Email, "")
 	assert.Equal(t, responseUser.BirthDate, "")
+}
+
+func TestDeleteUser_Authorized(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+	user := User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"}
+	userID := addDBUser(db, user)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	request, requestErr := http.NewRequest("DELETE", server.URL+apiUsersPath, nil)
+	assert.NoError(t, requestErr)
+	uuid, _ := uuid.Parse(userID)
+	accessToken, _ := auth.MakeJWT(uuid, authSecretKey, time.Hour)
+	request.Header.Add("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusNoContent, response.StatusCode)
+
+	dbUser := getDbUser(db, uuid.String())
+	assert.Nil(t, dbUser)
+}
+
+func TestDeleteUser_Unauthorized(t *testing.T) {
+	db, err := setupTestDB()
+	assert.NoError(t, err)
+	defer db.Close()
+	cleanupDB(db)
+
+	server := setupTestServer(db)
+	defer server.Close()
+
+	request, requestErr := http.NewRequest("DELETE", server.URL+apiUsersPath, nil)
+	assert.NoError(t, requestErr)
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer response.Body.Close()
+	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 }

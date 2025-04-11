@@ -112,6 +112,18 @@ func revokeRefreshToken(cfg *ApiConfig, r *http.Request, refreshToken string) {
 	}
 }
 
+func checkAuthorization(cfg *ApiConfig, r *http.Request) (uuid.UUID, error) {
+	token, tokenErr := auth.GetBearerToken(r.Header)
+	if tokenErr != nil {
+		return uuid.UUID{}, tokenErr
+	}
+	userID, authErr := auth.ValidateJWT(token, cfg.AuthSecretKey)
+	if authErr != nil {
+		return uuid.UUID{}, authErr
+	}
+	return userID, nil
+}
+
 func (cfg *ApiConfig) HandlePostApiUsers(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	request := userRequestBody{}
@@ -208,12 +220,7 @@ func (cfg *ApiConfig) HandlePostApiRevoke(w http.ResponseWriter, r *http.Request
 }
 
 func (cfg *ApiConfig) HandlePutApiUsers(w http.ResponseWriter, r *http.Request) {
-	token, tokenErr := auth.GetBearerToken(r.Header)
-	if tokenErr != nil {
-		respondWithError(w, http.StatusUnauthorized, tokenErr.Error())
-		return
-	}
-	userID, authErr := auth.ValidateJWT(token, cfg.AuthSecretKey)
+	userID, authErr := checkAuthorization(cfg, r)
 	if authErr != nil {
 		respondWithError(w, http.StatusUnauthorized, authErr.Error())
 		return
@@ -247,18 +254,6 @@ func (cfg *ApiConfig) HandlePutApiUsers(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func getAuthUser(cfg *ApiConfig, r *http.Request) *uuid.UUID {
-	token, tokenErr := auth.GetBearerToken(r.Header)
-	if tokenErr != nil {
-		return nil
-	}
-	userID, authErr := auth.ValidateJWT(token, cfg.AuthSecretKey)
-	if authErr != nil {
-		return nil
-	}
-	return &userID
-}
-
 func (cfg *ApiConfig) HandleGetApiUsers(w http.ResponseWriter, r *http.Request) {
 	requestUserID := r.PathValue("userID")
 	if len(requestUserID) == 0 {
@@ -271,8 +266,7 @@ func (cfg *ApiConfig) HandleGetApiUsers(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	authUserIdPtr := getAuthUser(cfg, r)
-	cfg.DB.GetUser(r.Context(), database.GetUserParams{})
+	authUserID, _ := checkAuthorization(cfg, r)
 
 	user, userErr := cfg.DB.GetUserById(r.Context(), requestUserUUID)
 	if userErr != nil {
@@ -286,11 +280,27 @@ func (cfg *ApiConfig) HandleGetApiUsers(w http.ResponseWriter, r *http.Request) 
 		BirthDate string `json:"birth_date"`
 	}
 	response := responseBody{LoginName: user.LoginName}
-	if authUserIdPtr != nil && *authUserIdPtr == requestUserUUID {
+	if authUserID == requestUserUUID {
 		if user.BirthDate.Valid {
 			response.BirthDate = user.BirthDate.Time.Format(dateFormat)
 		}
 		response.Email = user.Email
 	}
 	respondWithJSON(w, http.StatusOK, response, nil)
+}
+
+func (cfg *ApiConfig) HandleDeleteApiUsers(w http.ResponseWriter, r *http.Request) {
+	userID, authErr := checkAuthorization(cfg, r)
+	if authErr != nil {
+		respondWithError(w, http.StatusUnauthorized, authErr.Error())
+		return
+	}
+
+	deleteErr := cfg.DB.DeleteUser(r.Context(), userID)
+	if deleteErr != nil {
+		respondWithError(w, http.StatusInternalServerError, deleteErr.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

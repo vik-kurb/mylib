@@ -17,4 +17,5 @@ func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
 	sm.HandleFunc("POST /api/revoke", apiCfg.HandlePostApiRevoke)
 	sm.HandleFunc("PUT /api/users", apiCfg.HandlePutApiUsers)
 	sm.HandleFunc("GET /api/users/{userID}", apiCfg.HandleGetApiUsers)
+	sm.HandleFunc("DELETE /api/users", apiCfg.HandleDeleteApiUsers)
 }
