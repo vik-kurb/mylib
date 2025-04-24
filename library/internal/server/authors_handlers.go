@@ -14,12 +14,7 @@ import (
 
 func (cfg *ApiConfig) HandlePostApiAuthors(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	type requestBody struct {
-		FullName  string `json:"full_name"`
-		BirthDate string `json:"birth_date,omitempty"`
-		DeathDate string `json:"death_date,omitempty"`
-	}
-	request := requestBody{}
+	request := RequestAuthor{}
 	err := decoder.Decode(&request)
 	if err != nil || request.FullName == "" {
 		common.RespondWithError(w, http.StatusBadRequest, "Invalid request")
@@ -31,14 +26,14 @@ func (cfg *ApiConfig) HandlePostApiAuthors(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	db_err := cfg.DB.CreateAuthor(
+	dbErr := cfg.DB.CreateAuthor(
 		r.Context(),
 		database.CreateAuthorParams{
 			FullName:  request.FullName,
 			BirthDate: common.ToNullTime(request.BirthDate),
 			DeathDate: common.ToNullTime(request.DeathDate)})
-	if db_err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, db_err.Error())
+	if dbErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -50,9 +45,9 @@ func (cfg *ApiConfig) HandleGetApiAuthors(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	authors, db_err := cfg.DB.GetAuthors(r.Context())
-	if db_err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, db_err.Error())
+	authors, dbErr := cfg.DB.GetAuthors(r.Context())
+	if dbErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return
 	}
 	if len(authors) == 0 {
@@ -62,15 +57,11 @@ func (cfg *ApiConfig) HandleGetApiAuthors(w http.ResponseWriter, r *http.Request
 
 	sort.Slice(authors, func(i, j int) bool { return authors[i].FullName < authors[j].FullName })
 
-	type responseAuthor struct {
-		FullName string `json:"full_name"`
-		Id       string `json:"id"`
-	}
-	response_authors := make([]responseAuthor, 0, len(authors))
+	responseAuthors := make([]ResponseAuthorShortInfo, 0, len(authors))
 	for _, author := range authors {
-		response_authors = append(response_authors, responseAuthor{FullName: author.FullName, Id: author.ID.String()})
+		responseAuthors = append(responseAuthors, ResponseAuthorShortInfo{FullName: author.FullName, Id: author.ID.String()})
 	}
-	common.RespondWithJSON(w, http.StatusOK, response_authors)
+	common.RespondWithJSON(w, http.StatusOK, responseAuthors, nil)
 }
 
 func (cfg *ApiConfig) HandleGetApiAuthorsId(w http.ResponseWriter, r *http.Request) {
@@ -84,22 +75,17 @@ func (cfg *ApiConfig) HandleGetApiAuthorsId(w http.ResponseWriter, r *http.Reque
 		common.RespondWithError(w, http.StatusBadRequest, "Invalid id")
 		return
 	}
-	author, db_err := cfg.DB.GetAuthor(r.Context(), uuid)
-	if db_err == sql.ErrNoRows {
+	author, dbErr := cfg.DB.GetAuthor(r.Context(), uuid)
+	if dbErr == sql.ErrNoRows {
 		common.RespondWithError(w, http.StatusNotFound, "Author not found")
 		return
 	}
-	if db_err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, db_err.Error())
+	if dbErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return
 	}
 
-	type responseAuthor struct {
-		FullName  string `json:"full_name"`
-		BirthDate string `json:"birth_date,omitempty"`
-		DeathDate string `json:"death_date,omitempty"`
-	}
-	common.RespondWithJSON(w, http.StatusOK, responseAuthor{FullName: author.FullName, BirthDate: author.BirthDate.Time.Format(common.DateFormat), DeathDate: author.DeathDate.Time.Format(common.DateFormat)})
+	common.RespondWithJSON(w, http.StatusOK, ResponseAuthorFullInfo{FullName: author.FullName, BirthDate: author.BirthDate.Time.Format(common.DateFormat), DeathDate: author.DeathDate.Time.Format(common.DateFormat)}, nil)
 }
 
 func (cfg *ApiConfig) HandleDeleteAdminAuthors(w http.ResponseWriter, r *http.Request) {
@@ -114,9 +100,9 @@ func (cfg *ApiConfig) HandleDeleteAdminAuthors(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	db_err := cfg.DB.DeleteAuthor(r.Context(), uuid)
-	if db_err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, db_err.Error())
+	dbErr := cfg.DB.DeleteAuthor(r.Context(), uuid)
+	if dbErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return
 	}
 
@@ -125,21 +111,15 @@ func (cfg *ApiConfig) HandleDeleteAdminAuthors(w http.ResponseWriter, r *http.Re
 
 func (cfg *ApiConfig) HandlePutApiAuthors(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	type requestBody struct {
-		Id        string `json:"id"`
-		FullName  string `json:"full_name"`
-		BirthDate string `json:"birth_date,omitempty"`
-		DeathDate string `json:"death_date,omitempty"`
-	}
-	request := requestBody{}
+	request := RequestAuthorWithID{}
 	err := decoder.Decode(&request)
 	if err != nil || request.FullName == "" {
 		common.RespondWithError(w, http.StatusBadRequest, "Invalid request")
 		return
 	}
 
-	uuid, uuid_err := uuid.Parse(request.Id)
-	if uuid_err != nil {
+	uuid, uuidErr := uuid.Parse(request.Id)
+	if uuidErr != nil {
 		common.RespondWithError(w, http.StatusBadRequest, "Invalid id")
 		return
 	}
@@ -149,18 +129,18 @@ func (cfg *ApiConfig) HandlePutApiAuthors(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	rows_count, db_err := cfg.DB.UpdateAuthor(
+	rowsCount, dbErr := cfg.DB.UpdateAuthor(
 		r.Context(),
 		database.UpdateAuthorParams{
 			ID:        uuid,
 			FullName:  request.FullName,
 			BirthDate: common.ToNullTime(request.BirthDate),
 			DeathDate: common.ToNullTime(request.DeathDate)})
-	if db_err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, db_err.Error())
+	if dbErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return
 	}
-	if rows_count == 0 {
+	if rowsCount == 0 {
 		common.RespondWithError(w, http.StatusNotFound, "Author not found")
 		return
 	}

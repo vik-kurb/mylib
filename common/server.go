@@ -7,19 +7,22 @@ import (
 
 func RespondWithError(w http.ResponseWriter, code int, msg string) {
 	w.WriteHeader(code)
-	type error_response struct {
+	type errorResponse struct {
 		Error string `json:"error"`
 	}
-	response_data, err := json.Marshal(error_response{Error: msg})
+	responseData, err := json.Marshal(errorResponse{Error: msg})
 	if err == nil {
-		w.Write(response_data)
+		w.Write(responseData)
 	}
 }
 
-func RespondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+func RespondWithJSON(w http.ResponseWriter, code int, payload interface{}, cookie *http.Cookie) {
+	if cookie != nil {
+		http.SetCookie(w, cookie)
+	}
 	w.WriteHeader(code)
-	response_data, err := json.Marshal(payload)
+	responseData, err := json.Marshal(payload)
 	if err == nil {
-		w.Write(response_data)
+		w.Write(responseData)
 	}
 }

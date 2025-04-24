@@ -12,6 +12,6 @@ func SetupDB(envPath string, testDBEnv string) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	db_url := os.Getenv(testDBEnv)
-	return sql.Open("postgres", db_url)
+	dbUrl := os.Getenv(testDBEnv)
+	return sql.Open("postgres", dbUrl)
 }
