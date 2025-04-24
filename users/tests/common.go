@@ -4,12 +4,10 @@ import (
 	"database/sql"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"time"
-	"users/internal/database"
-	"users/internal/server"
 
-	"github.com/joho/godotenv"
+	"github.com/bakurvik/mylib/users/internal/database"
+	"github.com/bakurvik/mylib/users/internal/server"
 )
 
 const (
@@ -43,15 +41,6 @@ func addDBUser(db *sql.DB, user User) string {
 	userID := ""
 	row.Scan(&userID)
 	return userID
-}
-
-func setupTestDB() (*sql.DB, error) {
-	err := godotenv.Load("../.env")
-	if err != nil {
-		return nil, err
-	}
-	dbUrl := os.Getenv("TEST_DB_URL")
-	return sql.Open("postgres", dbUrl)
 }
 
 func cleanupDB(db *sql.DB) {

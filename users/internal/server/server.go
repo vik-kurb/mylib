@@ -2,7 +2,8 @@ package server
 
 import (
 	"net/http"
-	"users/internal/database"
+
+	"github.com/bakurvik/mylib/users/internal/database"
 )
 
 type ApiConfig struct {

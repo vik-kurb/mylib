@@ -9,7 +9,10 @@ import (
 	"net/http"
 	"testing"
 	"time"
-	"users/internal/auth"
+
+	"github.com/bakurvik/mylib/common"
+	"github.com/bakurvik/mylib/users/internal/auth"
+	"github.com/bakurvik/mylib/users/internal/server"
 
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
@@ -21,12 +24,6 @@ const (
 	selectUsers  = "SELECT login_name, email, birth_date, hashed_password, created_at, updated_at FROM users WHERE id = $1"
 )
 
-type ResponseUser struct {
-	Login     string `json:"login"`
-	Email     string `json:"email,omitempty"`
-	BirthDate string `json:"birth_date,omitempty"`
-}
-
 func getDbUser(db *sql.DB, id string) *User {
 	row := db.QueryRow(selectUsers, id)
 	user := User{}
@@ -37,42 +34,32 @@ func getDbUser(db *sql.DB, id string) *User {
 	return &user
 }
 
-func getUserFromResponse(response *http.Response) ResponseUser {
+func getUserFromResponse(response *http.Response) server.ResponseUser {
 	body, _ := io.ReadAll(response.Body)
-	responseData := ResponseUser{}
+	responseData := server.ResponseUser{}
 	json.Unmarshal(body, &responseData)
 	return responseData
 }
 
 func TestCreateUser_Success(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	type requestBody struct {
-		LoginName string `json:"login_name"`
-		Email     string `json:"email"`
-		BirthDate string `json:"birth_date,omitempty"`
-		Password  string `json:"password"`
-	}
-	request := requestBody{LoginName: "login", Email: "login@email.ru", BirthDate: "01.02.2003", Password: "password"}
+	request := server.RequestUser{LoginName: "login", Email: "login@email.ru", BirthDate: "01.02.2003", Password: "password"}
 	requestJson, _ := json.Marshal(request)
 
-	response, err := http.Post(server.URL+apiUsersPath, "application/json", bytes.NewBuffer(requestJson))
+	response, err := http.Post(s.URL+apiUsersPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusCreated, response.StatusCode)
 
 	decoder := json.NewDecoder(response.Body)
-	type responseUser struct {
-		ID    string `json:"id"`
-		Token string `json:"token"`
-	}
-	responseBody := responseUser{}
+	responseBody := server.ResponseToken{}
 	err = decoder.Decode(&responseBody)
 	assert.NoError(t, err)
 	assert.NotEqual(t, responseBody.Token, "")
@@ -96,78 +83,60 @@ func TestCreateUser_Success(t *testing.T) {
 }
 
 func TestCreateUser_LoginExists(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
-	login_name := "some_login"
-	addDBUser(db, User{loginName: login_name, email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "e51abab383822821e70b5b538901fbf7"})
+	loginName := "some_login"
+	addDBUser(db, User{loginName: loginName, email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "e51abab383822821e70b5b538901fbf7"})
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	type requestBody struct {
-		LoginName string `json:"login_name"`
-		Email     string `json:"email"`
-		BirthDate string `json:"birth_date,omitempty"`
-		Password  string `json:"password"`
-	}
-	request := requestBody{LoginName: login_name, Email: "another_login@email.ru", BirthDate: "01.02.2003", Password: "password"}
+	request := server.RequestUser{LoginName: loginName, Email: "another_login@email.ru", BirthDate: "01.02.2003", Password: "password"}
 	requestJson, _ := json.Marshal(request)
 
-	response, err := http.Post(server.URL+apiUsersPath, "application/json", bytes.NewBuffer(requestJson))
+	response, err := http.Post(s.URL+apiUsersPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusConflict, response.StatusCode)
 }
 
 func TestCreateUser_EmailExists(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 	email := "some_email@email.com"
 	addDBUser(db, User{loginName: "some_login", email: email, birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "e51abab383822821e70b5b538901fbf7"})
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	type requestBody struct {
-		LoginName string `json:"login_name"`
-		Email     string `json:"email"`
-		BirthDate string `json:"birth_date,omitempty"`
-		Password  string `json:"password"`
-	}
-	request := requestBody{LoginName: "another_login", Email: email, BirthDate: "01.02.2003", Password: "password"}
+	request := server.RequestUser{LoginName: "another_login", Email: email, BirthDate: "01.02.2003", Password: "password"}
 	requestJson, _ := json.Marshal(request)
 
-	response, err := http.Post(server.URL+apiUsersPath, "application/json", bytes.NewBuffer(requestJson))
+	response, err := http.Post(s.URL+apiUsersPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusConflict, response.StatusCode)
 }
 
 func TestUpdateUser_Success(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 	userID := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	type requestBody struct {
-		LoginName string `json:"login_name"`
-		Email     string `json:"email"`
-		BirthDate string `json:"birth_date,omitempty"`
-		Password  string `json:"password"`
-	}
 	newPassword := "another_password"
-	req := requestBody{LoginName: "another_login", Email: "another_login@email.ru", BirthDate: "10.05.2014", Password: newPassword}
+	req := server.RequestUser{LoginName: "another_login", Email: "another_login@email.ru", BirthDate: "10.05.2014", Password: newPassword}
 	requestJson, _ := json.Marshal(req)
 
-	request, requestErr := http.NewRequest("PUT", server.URL+apiUsersPath, bytes.NewBuffer(requestJson))
+	request, requestErr := http.NewRequest("PUT", s.URL+apiUsersPath, bytes.NewBuffer(requestJson))
 	assert.NoError(t, requestErr)
 	uuid, _ := uuid.Parse(userID)
 	accessToken, _ := auth.MakeJWT(uuid, authSecretKey, time.Hour)
@@ -188,26 +157,20 @@ func TestUpdateUser_Success(t *testing.T) {
 }
 
 func TestUpdateUser_InvalidToken(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 	addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	type requestBody struct {
-		LoginName string `json:"login_name"`
-		Email     string `json:"email"`
-		BirthDate string `json:"birth_date,omitempty"`
-		Password  string `json:"password"`
-	}
 	newPassword := "another_password"
-	req := requestBody{LoginName: "another_login", Email: "another_login@email.ru", BirthDate: "10.05.2014", Password: newPassword}
+	req := server.RequestUser{LoginName: "another_login", Email: "another_login@email.ru", BirthDate: "10.05.2014", Password: newPassword}
 	requestJson, _ := json.Marshal(req)
 
-	request, requestErr := http.NewRequest("PUT", server.URL+apiUsersPath, bytes.NewBuffer(requestJson))
+	request, requestErr := http.NewRequest("PUT", s.URL+apiUsersPath, bytes.NewBuffer(requestJson))
 	assert.NoError(t, requestErr)
 	request.Header.Add("Authorization", "Bearer invalid_token")
 
@@ -219,26 +182,20 @@ func TestUpdateUser_InvalidToken(t *testing.T) {
 }
 
 func TestUpdateUser_NoToken(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
 	addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	type requestBody struct {
-		LoginName string `json:"login_name"`
-		Email     string `json:"email"`
-		BirthDate string `json:"birth_date,omitempty"`
-		Password  string `json:"password"`
-	}
 	newPassword := "another_password"
-	req := requestBody{LoginName: "another_login", Email: "another_login@email.ru", BirthDate: "10.05.2014", Password: newPassword}
+	req := server.RequestUser{LoginName: "another_login", Email: "another_login@email.ru", BirthDate: "10.05.2014", Password: newPassword}
 	requestJson, _ := json.Marshal(req)
 
-	request, requestErr := http.NewRequest("PUT", server.URL+apiUsersPath, bytes.NewBuffer(requestJson))
+	request, requestErr := http.NewRequest("PUT", s.URL+apiUsersPath, bytes.NewBuffer(requestJson))
 	assert.NoError(t, requestErr)
 
 	client := &http.Client{}
@@ -249,7 +206,7 @@ func TestUpdateUser_NoToken(t *testing.T) {
 }
 
 func TestGetUser_AuthorizedAsRequestUser(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
@@ -272,13 +229,13 @@ func TestGetUser_AuthorizedAsRequestUser(t *testing.T) {
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 
 	responseUser := getUserFromResponse(response)
-	assert.Equal(t, responseUser.Login, user.loginName)
+	assert.Equal(t, responseUser.LoginName, user.loginName)
 	assert.Equal(t, responseUser.Email, user.email)
 	assert.Equal(t, responseUser.BirthDate, user.birthDate.Time.Format(timeFormat))
 }
 
 func TestGetUser_AuthorizedAsAnotherUser(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
@@ -302,13 +259,13 @@ func TestGetUser_AuthorizedAsAnotherUser(t *testing.T) {
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 
 	responseUser := getUserFromResponse(response)
-	assert.Equal(t, responseUser.Login, user.loginName)
+	assert.Equal(t, responseUser.LoginName, user.loginName)
 	assert.Equal(t, responseUser.Email, "")
 	assert.Equal(t, responseUser.BirthDate, "")
 }
 
 func TestGetUser_Unauthorized(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
@@ -328,13 +285,13 @@ func TestGetUser_Unauthorized(t *testing.T) {
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 
 	responseUser := getUserFromResponse(response)
-	assert.Equal(t, responseUser.Login, user.loginName)
+	assert.Equal(t, responseUser.LoginName, user.loginName)
 	assert.Equal(t, responseUser.Email, "")
 	assert.Equal(t, responseUser.BirthDate, "")
 }
 
 func TestDeleteUser_Authorized(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)
@@ -361,7 +318,7 @@ func TestDeleteUser_Authorized(t *testing.T) {
 }
 
 func TestDeleteUser_Unauthorized(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer db.Close()
 	cleanupDB(db)

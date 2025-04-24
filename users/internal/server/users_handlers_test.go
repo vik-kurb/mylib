@@ -8,7 +8,7 @@ import (
 )
 
 func TestValidateUserData_InvalidLogin(t *testing.T) {
-	user := userRequestBody{LoginName: "lo", Email: "email@email.ru", BirthDate: "04.02.2004", Password: "password"}
+	user := RequestUser{LoginName: "lo", Email: "email@email.ru", BirthDate: "04.02.2004", Password: "password"}
 	code, err := validateUserData(&ApiConfig{}, &http.Request{}, user)
 	assert.Error(t, err)
 	assert.Equal(t, err.Error(), "login name is too short")
@@ -16,7 +16,7 @@ func TestValidateUserData_InvalidLogin(t *testing.T) {
 }
 
 func TestValidateUserData_InvalidEmail(t *testing.T) {
-	user := userRequestBody{LoginName: "login", Email: "email.ru", BirthDate: "04.02.2004", Password: "password"}
+	user := RequestUser{LoginName: "login", Email: "email.ru", BirthDate: "04.02.2004", Password: "password"}
 	code, err := validateUserData(&ApiConfig{}, &http.Request{}, user)
 	assert.Error(t, err)
 	assert.Equal(t, err.Error(), "invalid email")
@@ -24,7 +24,7 @@ func TestValidateUserData_InvalidEmail(t *testing.T) {
 }
 
 func TestValidateUserData_InvalidPassword(t *testing.T) {
-	user := userRequestBody{LoginName: "login", Email: "email@email.ru", BirthDate: "04.02.2004", Password: "pas"}
+	user := RequestUser{LoginName: "login", Email: "email@email.ru", BirthDate: "04.02.2004", Password: "pas"}
 	code, err := validateUserData(&ApiConfig{}, &http.Request{}, user)
 	assert.Error(t, err)
 	assert.Equal(t, err.Error(), "password is too short")
