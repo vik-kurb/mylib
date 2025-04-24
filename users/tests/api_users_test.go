@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"testing"
 	"time"
@@ -37,14 +38,17 @@ func getDbUser(db *sql.DB, id string) *User {
 func getUserFromResponse(response *http.Response) server.ResponseUser {
 	body, _ := io.ReadAll(response.Body)
 	responseData := server.ResponseUser{}
-	json.Unmarshal(body, &responseData)
+	err := json.Unmarshal(body, &responseData)
+	if err != nil {
+		log.Print("Failed to get user from response: ", err)
+	}
 	return responseData
 }
 
 func TestCreateUser_Success(t *testing.T) {
 	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
-	defer db.Close()
+	defer common.CloseDB(db)
 	cleanupDB(db)
 
 	s := setupTestServer(db)
@@ -55,7 +59,7 @@ func TestCreateUser_Success(t *testing.T) {
 
 	response, err := http.Post(s.URL+apiUsersPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
-	defer response.Body.Close()
+	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusCreated, response.StatusCode)
 
 	decoder := json.NewDecoder(response.Body)
@@ -85,7 +89,7 @@ func TestCreateUser_Success(t *testing.T) {
 func TestCreateUser_LoginExists(t *testing.T) {
 	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
-	defer db.Close()
+	defer common.CloseDB(db)
 	cleanupDB(db)
 	loginName := "some_login"
 	addDBUser(db, User{loginName: loginName, email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "e51abab383822821e70b5b538901fbf7"})
@@ -98,14 +102,14 @@ func TestCreateUser_LoginExists(t *testing.T) {
 
 	response, err := http.Post(s.URL+apiUsersPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
-	defer response.Body.Close()
+	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusConflict, response.StatusCode)
 }
 
 func TestCreateUser_EmailExists(t *testing.T) {
 	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
-	defer db.Close()
+	defer common.CloseDB(db)
 	cleanupDB(db)
 	email := "some_email@email.com"
 	addDBUser(db, User{loginName: "some_login", email: email, birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "e51abab383822821e70b5b538901fbf7"})
@@ -118,14 +122,14 @@ func TestCreateUser_EmailExists(t *testing.T) {
 
 	response, err := http.Post(s.URL+apiUsersPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
-	defer response.Body.Close()
+	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusConflict, response.StatusCode)
 }
 
 func TestUpdateUser_Success(t *testing.T) {
 	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
-	defer db.Close()
+	defer common.CloseDB(db)
 	cleanupDB(db)
 	userID := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
 
@@ -145,7 +149,7 @@ func TestUpdateUser_Success(t *testing.T) {
 	client := &http.Client{}
 	response, err := client.Do(request)
 	assert.NoError(t, err)
-	defer response.Body.Close()
+	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusNoContent, response.StatusCode)
 
 	user := getDbUser(db, userID)
@@ -159,7 +163,7 @@ func TestUpdateUser_Success(t *testing.T) {
 func TestUpdateUser_InvalidToken(t *testing.T) {
 	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
-	defer db.Close()
+	defer common.CloseDB(db)
 	cleanupDB(db)
 	addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
 
@@ -177,14 +181,14 @@ func TestUpdateUser_InvalidToken(t *testing.T) {
 	client := &http.Client{}
 	response, err := client.Do(request)
 	assert.NoError(t, err)
-	defer response.Body.Close()
+	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 }
 
 func TestUpdateUser_NoToken(t *testing.T) {
 	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
-	defer db.Close()
+	defer common.CloseDB(db)
 	cleanupDB(db)
 	addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
 
@@ -201,14 +205,14 @@ func TestUpdateUser_NoToken(t *testing.T) {
 	client := &http.Client{}
 	response, err := client.Do(request)
 	assert.NoError(t, err)
-	defer response.Body.Close()
+	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 }
 
 func TestGetUser_AuthorizedAsRequestUser(t *testing.T) {
 	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
-	defer db.Close()
+	defer common.CloseDB(db)
 	cleanupDB(db)
 	user := User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"}
 	userID := addDBUser(db, user)
@@ -225,7 +229,7 @@ func TestGetUser_AuthorizedAsRequestUser(t *testing.T) {
 	client := &http.Client{}
 	response, err := client.Do(request)
 	assert.NoError(t, err)
-	defer response.Body.Close()
+	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 
 	responseUser := getUserFromResponse(response)
@@ -237,7 +241,7 @@ func TestGetUser_AuthorizedAsRequestUser(t *testing.T) {
 func TestGetUser_AuthorizedAsAnotherUser(t *testing.T) {
 	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
-	defer db.Close()
+	defer common.CloseDB(db)
 	cleanupDB(db)
 	user := User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"}
 	userID := addDBUser(db, user)
@@ -255,7 +259,7 @@ func TestGetUser_AuthorizedAsAnotherUser(t *testing.T) {
 	client := &http.Client{}
 	response, err := client.Do(request)
 	assert.NoError(t, err)
-	defer response.Body.Close()
+	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 
 	responseUser := getUserFromResponse(response)
@@ -267,7 +271,7 @@ func TestGetUser_AuthorizedAsAnotherUser(t *testing.T) {
 func TestGetUser_Unauthorized(t *testing.T) {
 	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
-	defer db.Close()
+	defer common.CloseDB(db)
 	cleanupDB(db)
 	user := User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"}
 	userID := addDBUser(db, user)
@@ -281,7 +285,7 @@ func TestGetUser_Unauthorized(t *testing.T) {
 	client := &http.Client{}
 	response, err := client.Do(request)
 	assert.NoError(t, err)
-	defer response.Body.Close()
+	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 
 	responseUser := getUserFromResponse(response)
@@ -293,7 +297,7 @@ func TestGetUser_Unauthorized(t *testing.T) {
 func TestDeleteUser_Authorized(t *testing.T) {
 	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
-	defer db.Close()
+	defer common.CloseDB(db)
 	cleanupDB(db)
 	user := User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"}
 	userID := addDBUser(db, user)
@@ -310,7 +314,7 @@ func TestDeleteUser_Authorized(t *testing.T) {
 	client := &http.Client{}
 	response, err := client.Do(request)
 	assert.NoError(t, err)
-	defer response.Body.Close()
+	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusNoContent, response.StatusCode)
 
 	dbUser := getDbUser(db, uuid.String())
@@ -320,7 +324,7 @@ func TestDeleteUser_Authorized(t *testing.T) {
 func TestDeleteUser_Unauthorized(t *testing.T) {
 	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
-	defer db.Close()
+	defer common.CloseDB(db)
 	cleanupDB(db)
 
 	server := setupTestServer(db)
@@ -332,6 +336,6 @@ func TestDeleteUser_Unauthorized(t *testing.T) {
 	client := &http.Client{}
 	response, err := client.Do(request)
 	assert.NoError(t, err)
-	defer response.Body.Close()
+	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 }

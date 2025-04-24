@@ -2,6 +2,7 @@ package tests
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"time"
@@ -39,12 +40,18 @@ func addDBUser(db *sql.DB, user User) string {
 		insertUser,
 		user.loginName, user.email, user.birthDate, user.hashedPassword)
 	userID := ""
-	row.Scan(&userID)
+	err := row.Scan(&userID)
+	if err != nil {
+		log.Print("Failed to add user: ", err)
+	}
 	return userID
 }
 
 func cleanupDB(db *sql.DB) {
-	db.Query(deleteUsers)
+	_, err := db.Query(deleteUsers)
+	if err != nil {
+		log.Print("Failed to cleanup db: ", err)
+	}
 }
 
 func setupTestServer(db *sql.DB) *httptest.Server {
