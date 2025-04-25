@@ -23,6 +23,7 @@ func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
 	sm.HandleFunc(fmt.Sprintf("GET %v/{id}", ApiAuthorsPath), apiCfg.HandleGetApiAuthorsId)
 	sm.HandleFunc(fmt.Sprintf("DELETE %v/{id}", AdminAuthorsPath), apiCfg.HandleDeleteAdminAuthors)
 	sm.HandleFunc("PUT "+ApiAuthorsPath, apiCfg.HandlePutApiAuthors)
+	sm.HandleFunc(fmt.Sprintf("GET %v/{id}/books", ApiAuthorsPath), apiCfg.HandleGetApiAuthorsBooks)
 
 	// Books
 	sm.HandleFunc("POST "+ApiBooksPath, apiCfg.HandlePostApiBooks)

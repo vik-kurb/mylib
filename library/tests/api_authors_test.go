@@ -13,6 +13,7 @@ import (
 
 	"github.com/bakurvik/mylib/common"
 	"github.com/bakurvik/mylib/library/internal/server"
+	"github.com/google/uuid"
 
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,7 @@ const (
 )
 
 type Author struct {
-	id        string
+	id        uuid.UUID
 	fullName  string
 	birthDate sql.NullTime
 	deathDate sql.NullTime
@@ -158,9 +159,9 @@ func TestGetAuthors_Success(t *testing.T) {
 	defer common.CloseDB(db)
 	cleanupDB(db)
 	dbAuthors := []Author{
-		{id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", fullName: "Alexander Pushkin"},
-		{id: "0254a622-68fd-4812-a0bc-d997bbe3a731", fullName: "Leo Tolstoy"},
-		{id: "1a05bda1-266c-4226-a662-51cbc60ddc86", fullName: "Fyodor Dostoevsky"},
+		{id: uuid.New(), fullName: "Alexander Pushkin"},
+		{id: uuid.New(), fullName: "Leo Tolstoy"},
+		{id: uuid.New(), fullName: "Fyodor Dostoevsky"},
 	}
 	AddAuthorsDB(db, dbAuthors)
 
@@ -177,9 +178,9 @@ func TestGetAuthors_Success(t *testing.T) {
 	err = decoder.Decode(&responseBody)
 	assert.NoError(t, err)
 	assert.Equal(t, responseBody, []server.ResponseAuthorShortInfo{
-		{FullName: "Alexander Pushkin", Id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea"},
-		{FullName: "Fyodor Dostoevsky", Id: "1a05bda1-266c-4226-a662-51cbc60ddc86"},
-		{FullName: "Leo Tolstoy", Id: "0254a622-68fd-4812-a0bc-d997bbe3a731"}})
+		{FullName: "Alexander Pushkin", Id: dbAuthors[0].id.String()},
+		{FullName: "Fyodor Dostoevsky", Id: dbAuthors[2].id.String()},
+		{FullName: "Leo Tolstoy", Id: dbAuthors[1].id.String()}})
 }
 
 func TestGetAuthors_NotFound(t *testing.T) {
@@ -203,7 +204,7 @@ func TestGetAuthorsId_Success(t *testing.T) {
 	defer common.CloseDB(db)
 	cleanupDB(db)
 	author := Author{
-		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", fullName: "Alexander Pushkin", birthDate: common.ToNullTime("06.06.1799"), deathDate: common.ToNullTime("10.02.1837"),
+		id: uuid.New(), fullName: "Alexander Pushkin", birthDate: common.ToNullTime("06.06.1799"), deathDate: common.ToNullTime("10.02.1837"),
 	}
 	AddAuthorsDB(db, []Author{author})
 
@@ -231,7 +232,7 @@ func TestGetAuthorsId_NotFound(t *testing.T) {
 	s := setupTestServer(db)
 	defer s.Close()
 
-	id := "aeecbc4e-9547-4fce-88ac-4e739567a1ea"
+	id := uuid.New()
 	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiAuthorsPath, id))
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
@@ -260,7 +261,7 @@ func TestDeleteAuthorsId_Success(t *testing.T) {
 	defer common.CloseDB(db)
 	cleanupDB(db)
 	author := Author{
-		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", fullName: "Alexander Pushkin", birthDate: common.ToNullTime("06.06.1799"), deathDate: common.ToNullTime("10.02.1837"),
+		id: uuid.New(), fullName: "Alexander Pushkin", birthDate: common.ToNullTime("06.06.1799"), deathDate: common.ToNullTime("10.02.1837"),
 	}
 	AddAuthorsDB(db, []Author{author})
 
@@ -287,7 +288,7 @@ func TestDeleteAuthorsId_NoAuthor(t *testing.T) {
 	defer s.Close()
 
 	client := &http.Client{}
-	id := "aeecbc4e-9547-4fce-88ac-4e739567a1ea"
+	id := uuid.New()
 	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminAuthorsPath, id), nil)
 	assert.NoError(t, err)
 
@@ -323,7 +324,7 @@ func TestUpdateAuthor_Success(t *testing.T) {
 	defer common.CloseDB(db)
 	cleanupDB(db)
 	author := Author{
-		id:        "aeecbc4e-9547-4fce-88ac-4e739567a1ea",
+		id:        uuid.New(),
 		fullName:  "Alexander Pushkin",
 		birthDate: common.ToNullTime("06.06.1799"),
 		deathDate: common.ToNullTime("10.02.1837"),
@@ -336,7 +337,7 @@ func TestUpdateAuthor_Success(t *testing.T) {
 	defer s.Close()
 
 	requestBody := map[string]string{
-		"id":         author.id,
+		"id":         author.id.String(),
 		"full_name":  "Leo Tolstoy",
 		"birth_date": "09.09.1828",
 		"death_date": "20.11.1910",
@@ -369,7 +370,7 @@ func TestUpdateAuthor_NotFoundAuthor(t *testing.T) {
 	defer s.Close()
 
 	requestBody := map[string]string{
-		"id":         "aeecbc4e-9547-4fce-88ac-4e739567a1ea",
+		"id":         uuid.New().String(),
 		"full_name":  "Leo Tolstoy",
 		"birth_date": "09.09.1828",
 		"death_date": "20.11.1910",
@@ -417,4 +418,83 @@ func TestUpdateAuthor_InvalidId(t *testing.T) {
 
 	authors := GetDbAuthors(t, db)
 	assert.Equal(t, len(authors), 0)
+}
+
+func TestGetAuthorBooks_Success(t *testing.T) {
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	assert.NoError(t, err)
+	defer common.CloseDB(db)
+	cleanupDB(db)
+	authors := []Author{
+		{id: uuid.New(), fullName: "Alexander Pushkin"},
+		{id: uuid.New(), fullName: "Leo Tolstoy"},
+	}
+	AddAuthorsDB(db, authors)
+	books := []Book{
+		{id: uuid.New(), title: "The Captain's Daughter"},
+		{id: uuid.New(), title: "Dubrovsky"},
+		{id: uuid.New(), title: "War and Peace"},
+	}
+	AddBooksDB(db, books)
+	AddBookAuthorsDB(db, []string{books[0].id.String(), books[1].id.String(), books[2].id.String()}, []string{authors[0].id.String(), authors[0].id.String(), authors[1].id.String()})
+
+	s := setupTestServer(db)
+	defer s.Close()
+
+	response, err := http.Get(fmt.Sprintf("%v%v/{%v}/books", s.URL, server.ApiAuthorsPath, authors[0].id))
+	assert.NoError(t, err)
+	defer common.CloseResponseBody(response)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	decoder := json.NewDecoder(response.Body)
+	responseBody := make([]server.ResponseBook, 0)
+	err = decoder.Decode(&responseBody)
+	assert.NoError(t, err)
+	assert.Equal(t, responseBody, []server.ResponseBook{{Id: books[1].id.String(), Title: books[1].title}, {Id: books[0].id.String(), Title: books[0].title}})
+}
+
+func TestGetAuthorBooks_NoBooks(t *testing.T) {
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	assert.NoError(t, err)
+	defer common.CloseDB(db)
+	cleanupDB(db)
+	authors := []Author{
+		{id: uuid.New(), fullName: "Alexander Pushkin"},
+		{id: uuid.New(), fullName: "Leo Tolstoy"},
+	}
+	AddAuthorsDB(db, authors)
+	books := []Book{
+		{id: uuid.New(), title: "War and Peace"},
+	}
+	AddBooksDB(db, books)
+	AddBookAuthorsDB(db, []string{books[0].id.String()}, []string{authors[1].id.String()})
+
+	s := setupTestServer(db)
+	defer s.Close()
+
+	response, err := http.Get(fmt.Sprintf("%v%v/{%v}/books", s.URL, server.ApiAuthorsPath, authors[0].id))
+	assert.NoError(t, err)
+	defer common.CloseResponseBody(response)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	decoder := json.NewDecoder(response.Body)
+	responseBody := make([]server.ResponseBook, 0)
+	err = decoder.Decode(&responseBody)
+	assert.NoError(t, err)
+	assert.Equal(t, responseBody, []server.ResponseBook{})
+}
+
+func TestGetAuthorBooks_UnknownAuthor(t *testing.T) {
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	assert.NoError(t, err)
+	defer common.CloseDB(db)
+	cleanupDB(db)
+
+	s := setupTestServer(db)
+	defer s.Close()
+
+	response, err := http.Get(fmt.Sprintf("%v%v/{%v}/books", s.URL, server.ApiAuthorsPath, uuid.New()))
+	assert.NoError(t, err)
+	defer common.CloseResponseBody(response)
+	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }

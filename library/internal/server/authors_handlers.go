@@ -151,3 +151,39 @@ func (cfg *ApiConfig) HandlePutApiAuthors(w http.ResponseWriter, r *http.Request
 	}
 	w.WriteHeader(http.StatusOK)
 }
+
+func (cfg *ApiConfig) HandleGetApiAuthorsBooks(w http.ResponseWriter, r *http.Request) {
+	if cfg.DB == nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
+		return
+	}
+
+	uuid, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		common.RespondWithError(w, http.StatusBadRequest, "Invalid id")
+		return
+	}
+	queries := database.New(cfg.DB)
+	_, dbErr := queries.GetAuthor(r.Context(), uuid)
+	if dbErr == sql.ErrNoRows {
+		common.RespondWithError(w, http.StatusNotFound, "Author not found")
+		return
+	}
+	if dbErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
+		return
+	}
+
+	books, dbErr := queries.GetBooksByAuthor(r.Context(), uuid)
+	if dbErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
+		return
+	}
+	response := make([]ResponseBook, 0, len(books))
+	for _, book := range books {
+		response = append(response, ResponseBook{Id: book.ID.String(), Title: book.Title})
+	}
+	sort.Slice(response, func(i, j int) bool { return response[i].Title < response[j].Title })
+
+	common.RespondWithJSON(w, http.StatusOK, response, nil)
+}
