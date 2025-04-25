@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/bakurvik/mylib/common"
-	"github.com/bakurvik/mylib/library/internal/database"
 	"github.com/bakurvik/mylib/library/internal/server"
 
 	_ "github.com/lib/pq"
@@ -21,7 +20,6 @@ import (
 
 const (
 	selectAuthors = "SELECT full_name, birth_date, death_date, created_at, updated_at FROM authors"
-	deleteAuthors = "TRUNCATE authors"
 	insertAuthor  = "INSERT INTO authors(id, full_name, birth_date, death_date, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)"
 )
 
@@ -48,13 +46,6 @@ func assertEqual(t *testing.T, author Author, expectedData map[string]string) {
 	assertDateEqual(t, author.deathDate, expectedData, "death_date")
 }
 
-func cleanupDB(db *sql.DB) {
-	_, err := db.Query(deleteAuthors)
-	if err != nil {
-		log.Print("Failed to cleanup db: ", err)
-	}
-}
-
 func AddAuthorsDB(db *sql.DB, authors []Author) {
 	for _, author := range authors {
 		_, err := db.Exec(
@@ -67,7 +58,7 @@ func AddAuthorsDB(db *sql.DB, authors []Author) {
 }
 
 func setupTestServer(db *sql.DB) *httptest.Server {
-	apiCfg := server.ApiConfig{DB: database.New(db)}
+	apiCfg := server.ApiConfig{DB: db}
 	sm := http.NewServeMux()
 	server.Handle(sm, &apiCfg)
 	return httptest.NewServer(sm)
@@ -212,7 +203,7 @@ func TestGetAuthorsId_Success(t *testing.T) {
 	defer common.CloseDB(db)
 	cleanupDB(db)
 	author := Author{
-		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", fullName: "Alexander Pushkin", birthDate: common.ToNullTime("06.06.1799"), deathDate: common.ToNullTime("10.20.1837"),
+		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", fullName: "Alexander Pushkin", birthDate: common.ToNullTime("06.06.1799"), deathDate: common.ToNullTime("10.02.1837"),
 	}
 	AddAuthorsDB(db, []Author{author})
 
@@ -269,7 +260,7 @@ func TestDeleteAuthorsId_Success(t *testing.T) {
 	defer common.CloseDB(db)
 	cleanupDB(db)
 	author := Author{
-		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", fullName: "Alexander Pushkin", birthDate: common.ToNullTime("06.06.1799"), deathDate: common.ToNullTime("10.20.1837"),
+		id: "aeecbc4e-9547-4fce-88ac-4e739567a1ea", fullName: "Alexander Pushkin", birthDate: common.ToNullTime("06.06.1799"), deathDate: common.ToNullTime("10.02.1837"),
 	}
 	AddAuthorsDB(db, []Author{author})
 
@@ -335,7 +326,7 @@ func TestUpdateAuthor_Success(t *testing.T) {
 		id:        "aeecbc4e-9547-4fce-88ac-4e739567a1ea",
 		fullName:  "Alexander Pushkin",
 		birthDate: common.ToNullTime("06.06.1799"),
-		deathDate: common.ToNullTime("10.20.1837"),
+		deathDate: common.ToNullTime("10.02.1837"),
 		createdAt: time.Date(2025, 2, 3, 0, 0, 0, 0, time.UTC),
 		updatedAt: time.Date(2025, 2, 5, 0, 0, 0, 0, time.UTC),
 	}

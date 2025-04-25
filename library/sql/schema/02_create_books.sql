@@ -1,0 +1,18 @@
+-- +goose Up
+CREATE TABLE IF NOT EXISTS books(
+    id UUID PRIMARY KEY,
+    title TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS book_authors(
+    book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    author_id UUID NOT NULL REFERENCES authors(id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- +goose Down
+DROP TABLE IF EXISTS book_authors;
+DROP TABLE IF EXISTS books;

@@ -23,3 +23,8 @@ type ResponseAuthorFullInfo struct {
 	BirthDate string `json:"birth_date,omitempty"`
 	DeathDate string `json:"death_date,omitempty"`
 }
+
+type RequestBook struct {
+	Title   string   `json:"title"`
+	Authors []string `json:"authors"`
+}

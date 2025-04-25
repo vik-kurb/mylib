@@ -19,3 +19,17 @@ type Author struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+type Book struct {
+	ID        uuid.UUID
+	Title     string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type BookAuthor struct {
+	BookID    uuid.UUID
+	AuthorID  uuid.UUID
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}

@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/bakurvik/mylib/common"
-	"github.com/bakurvik/mylib/library/internal/database"
 	"github.com/bakurvik/mylib/library/internal/server"
 
 	_ "github.com/lib/pq"
@@ -18,7 +17,7 @@ func main() {
 	}
 
 	sm := http.NewServeMux()
-	apiCfg := server.ApiConfig{DB: database.New(db)}
+	apiCfg := server.ApiConfig{DB: db}
 	server.Handle(sm, &apiCfg)
 
 	s := http.Server{

@@ -26,7 +26,8 @@ func (cfg *ApiConfig) HandlePostApiAuthors(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	dbErr := cfg.DB.CreateAuthor(
+	queries := database.New(cfg.DB)
+	dbErr := queries.CreateAuthor(
 		r.Context(),
 		database.CreateAuthorParams{
 			FullName:  request.FullName,
@@ -45,7 +46,8 @@ func (cfg *ApiConfig) HandleGetApiAuthors(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	authors, dbErr := cfg.DB.GetAuthors(r.Context())
+	queries := database.New(cfg.DB)
+	authors, dbErr := queries.GetAuthors(r.Context())
 	if dbErr != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return
@@ -75,7 +77,8 @@ func (cfg *ApiConfig) HandleGetApiAuthorsId(w http.ResponseWriter, r *http.Reque
 		common.RespondWithError(w, http.StatusBadRequest, "Invalid id")
 		return
 	}
-	author, dbErr := cfg.DB.GetAuthor(r.Context(), uuid)
+	queries := database.New(cfg.DB)
+	author, dbErr := queries.GetAuthor(r.Context(), uuid)
 	if dbErr == sql.ErrNoRows {
 		common.RespondWithError(w, http.StatusNotFound, "Author not found")
 		return
@@ -100,7 +103,8 @@ func (cfg *ApiConfig) HandleDeleteAdminAuthors(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	dbErr := cfg.DB.DeleteAuthor(r.Context(), uuid)
+	queries := database.New(cfg.DB)
+	dbErr := queries.DeleteAuthor(r.Context(), uuid)
 	if dbErr != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return
@@ -129,7 +133,8 @@ func (cfg *ApiConfig) HandlePutApiAuthors(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	rowsCount, dbErr := cfg.DB.UpdateAuthor(
+	queries := database.New(cfg.DB)
+	rowsCount, dbErr := queries.UpdateAuthor(
 		r.Context(),
 		database.UpdateAuthorParams{
 			ID:        uuid,
