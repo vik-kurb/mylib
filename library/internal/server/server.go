@@ -27,4 +27,5 @@ func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
 
 	// Books
 	sm.HandleFunc("POST "+ApiBooksPath, apiCfg.HandlePostApiBooks)
+	sm.HandleFunc("PUT "+ApiBooksPath, apiCfg.HandlePutApiBooks)
 }

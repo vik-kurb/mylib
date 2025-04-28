@@ -436,7 +436,9 @@ func TestGetAuthorBooks_Success(t *testing.T) {
 		{id: uuid.New(), title: "War and Peace"},
 	}
 	AddBooksDB(db, books)
-	AddBookAuthorsDB(db, []string{books[0].id.String(), books[1].id.String(), books[2].id.String()}, []string{authors[0].id.String(), authors[0].id.String(), authors[1].id.String()})
+	AddBookAuthorsDB(db, books[0].id.String(), []string{authors[0].id.String()})
+	AddBookAuthorsDB(db, books[1].id.String(), []string{authors[0].id.String()})
+	AddBookAuthorsDB(db, books[2].id.String(), []string{authors[1].id.String()})
 
 	s := setupTestServer(db)
 	defer s.Close()
@@ -467,7 +469,7 @@ func TestGetAuthorBooks_NoBooks(t *testing.T) {
 		{id: uuid.New(), title: "War and Peace"},
 	}
 	AddBooksDB(db, books)
-	AddBookAuthorsDB(db, []string{books[0].id.String()}, []string{authors[1].id.String()})
+	AddBookAuthorsDB(db, books[0].id.String(), []string{authors[1].id.String()})
 
 	s := setupTestServer(db)
 	defer s.Close()

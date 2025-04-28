@@ -33,3 +33,9 @@ type RequestBook struct {
 	Title   string   `json:"title"`
 	Authors []string `json:"authors"`
 }
+
+type RequestBookWithID struct {
+	Id      string   `json:"id"`
+	Title   string   `json:"title"`
+	Authors []string `json:"authors"`
+}

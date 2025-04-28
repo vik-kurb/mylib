@@ -14,15 +14,15 @@ import (
 
 const addBookAuthors = `-- name: AddBookAuthors :exec
 INSERT INTO book_authors (book_id, author_id)
-SELECT UNNEST($1::UUID[]), UNNEST($2::UUID[])
+SELECT $1, UNNEST($2::UUID[])
 `
 
 type AddBookAuthorsParams struct {
-	Books   []uuid.UUID
+	Book    uuid.UUID
 	Authors []uuid.UUID
 }
 
 func (q *Queries) AddBookAuthors(ctx context.Context, arg AddBookAuthorsParams) error {
-	_, err := q.db.ExecContext(ctx, addBookAuthors, pq.Array(arg.Books), pq.Array(arg.Authors))
+	_, err := q.db.ExecContext(ctx, addBookAuthors, arg.Book, pq.Array(arg.Authors))
 	return err
 }
