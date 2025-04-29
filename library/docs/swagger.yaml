@@ -1,0 +1,382 @@
+basePath: /
+definitions:
+  server.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  server.RequestAuthor:
+    properties:
+      birth_date:
+        type: string
+      death_date:
+        type: string
+      full_name:
+        type: string
+    type: object
+  server.RequestBook:
+    properties:
+      authors:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+    type: object
+  server.RequestBookWithID:
+    properties:
+      authors:
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      title:
+        type: string
+    type: object
+  server.ResponseAuthorFullInfo:
+    properties:
+      birth_date:
+        type: string
+      death_date:
+        type: string
+      full_name:
+        type: string
+    type: object
+  server.ResponseAuthorShortInfo:
+    properties:
+      full_name:
+        type: string
+      id:
+        type: string
+    type: object
+  server.ResponseBook:
+    properties:
+      id:
+        type: string
+      title:
+        type: string
+    type: object
+  server.ResponseBookFullInfo:
+    properties:
+      authors:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API for managing authors and books.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: Library Service API
+  version: "1.0"
+paths:
+  /admin/authors:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes an author from DB with requested ID
+      parameters:
+      - description: Author ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Deleted successfully
+          schema:
+            type: string
+        "400":
+          description: Invalid author ID
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Deletes author
+      tags:
+      - Admin Authors
+  /admin/books:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes a book from DB with requested ID
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Deleted successfully
+          schema:
+            type: string
+        "400":
+          description: Invalid book ID
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Deletes book
+      tags:
+      - Admin Books
+  /api/authors:
+    get:
+      consumes:
+      - application/json
+      description: Gets all authors from DB
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Author's short info
+          schema:
+            $ref: '#/definitions/server.ResponseAuthorShortInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Gets authors
+      tags:
+      - Authors
+    post:
+      consumes:
+      - application/json
+      description: Creates new author and stores it in DB
+      parameters:
+      - description: Author's info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/server.RequestAuthor'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created successfully
+          schema:
+            type: string
+        "400":
+          description: Invalid request body or empty full_name
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Creates new author
+      tags:
+      - Authors
+    put:
+      consumes:
+      - application/json
+      description: Updates existing author's info in DB
+      parameters:
+      - description: Author's info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/server.RequestAuthor'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated successfully
+          schema:
+            type: string
+        "400":
+          description: Invalid request body or empty full_name
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: Author not found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Updates author
+      tags:
+      - Authors
+  /api/authors/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Gets an author with requested ID from DB
+      parameters:
+      - description: Author ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Author's full info
+          schema:
+            $ref: '#/definitions/server.ResponseAuthorFullInfo'
+        "400":
+          description: Invalid author ID
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: Author not found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Gets author
+      tags:
+      - Authors
+  /api/authors/{id}/books:
+    get:
+      consumes:
+      - application/json
+      description: Gets all author's books from DB
+      parameters:
+      - description: Author ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Author's books
+          schema:
+            items:
+              $ref: '#/definitions/server.ResponseBook'
+            type: array
+        "400":
+          description: Invalid author ID
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: Author not found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Gets author's books
+      tags:
+      - Authors
+  /api/books:
+    post:
+      consumes:
+      - application/json
+      description: Creates new book and stores it in DB
+      parameters:
+      - description: Book's info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/server.RequestBook'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created successfully
+          schema:
+            type: string
+        "400":
+          description: Invalid request body or empty title
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Creates new book
+      tags:
+      - Books
+    put:
+      consumes:
+      - application/json
+      description: Updates existing book's info in DB
+      parameters:
+      - description: Book's info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/server.RequestBookWithID'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated successfully
+          schema:
+            type: string
+        "400":
+          description: Invalid request body or empty title
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: Book not found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Updates book
+      tags:
+      - Books
+  /api/books/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Gets book with requested ID from DB
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Book's full info
+          schema:
+            $ref: '#/definitions/server.ResponseBookFullInfo'
+        "400":
+          description: Invalid book ID
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: Book not found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Gets book
+      tags:
+      - Books
+swagger: "2.0"

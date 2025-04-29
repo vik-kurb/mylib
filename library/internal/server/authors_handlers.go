@@ -12,6 +12,16 @@ import (
 	"github.com/google/uuid"
 )
 
+// @Summary Creates new author
+// @Description Creates new author and stores it in DB
+// @Tags Authors
+// @Accept json
+// @Produce json
+// @Param request body RequestAuthor true "Author's info"
+// @Success 201 {string} string "Created successfully"
+// @Failure 400 {object} ErrorResponse "Invalid request body or empty full_name"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/authors [post]
 func (cfg *ApiConfig) HandlePostApiAuthors(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	request := RequestAuthor{}
@@ -40,6 +50,14 @@ func (cfg *ApiConfig) HandlePostApiAuthors(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusCreated)
 }
 
+// @Summary Gets authors
+// @Description Gets all authors from DB
+// @Tags Authors
+// @Accept json
+// @Produce json
+// @Success 200 {array} ResponseAuthorShortInfo "Author's short info"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/authors [get]
 func (cfg *ApiConfig) HandleGetApiAuthors(w http.ResponseWriter, r *http.Request) {
 	if cfg.DB == nil {
 		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
@@ -52,10 +70,6 @@ func (cfg *ApiConfig) HandleGetApiAuthors(w http.ResponseWriter, r *http.Request
 		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return
 	}
-	if len(authors) == 0 {
-		common.RespondWithError(w, http.StatusNotFound, "No authors")
-		return
-	}
 
 	sort.Slice(authors, func(i, j int) bool { return authors[i].FullName < authors[j].FullName })
 
@@ -66,6 +80,17 @@ func (cfg *ApiConfig) HandleGetApiAuthors(w http.ResponseWriter, r *http.Request
 	common.RespondWithJSON(w, http.StatusOK, responseAuthors, nil)
 }
 
+// @Summary Gets author
+// @Description Gets an author with requested ID from DB
+// @Tags Authors
+// @Accept json
+// @Produce json
+// @Param id path string true "Author ID"
+// @Success 200 {object} ResponseAuthorFullInfo "Author's full info"
+// @Success 400 {object} ErrorResponse "Invalid author ID"
+// @Success 404 {object} ErrorResponse "Author not found"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/authors/{id} [get]
 func (cfg *ApiConfig) HandleGetApiAuthorsId(w http.ResponseWriter, r *http.Request) {
 	if cfg.DB == nil {
 		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
@@ -91,6 +116,16 @@ func (cfg *ApiConfig) HandleGetApiAuthorsId(w http.ResponseWriter, r *http.Reque
 	common.RespondWithJSON(w, http.StatusOK, ResponseAuthorFullInfo{FullName: author.FullName, BirthDate: author.BirthDate.Time.Format(common.DateFormat), DeathDate: author.DeathDate.Time.Format(common.DateFormat)}, nil)
 }
 
+// @Summary Deletes author
+// @Description Deletes an author with requested ID from DB
+// @Tags Admin Authors
+// @Accept json
+// @Produce json
+// @Param id path string true "Author ID"
+// @Success 200 {string} string "Deleted successfully"
+// @Failure 400 {object} ErrorResponse "Invalid author ID"
+// @Failure 500 {object} ErrorResponse
+// @Router /admin/authors/{id} [delete]
 func (cfg *ApiConfig) HandleDeleteAdminAuthors(w http.ResponseWriter, r *http.Request) {
 	uuid, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -113,6 +148,17 @@ func (cfg *ApiConfig) HandleDeleteAdminAuthors(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusOK)
 }
 
+// @Summary Updates author
+// @Description Updates existing author's info in DB
+// @Tags Authors
+// @Accept json
+// @Produce json
+// @Param request body RequestAuthor true "Author's info"
+// @Success 200 {string} string "Updated successfully"
+// @Failure 400 {object} ErrorResponse "Invalid request body or empty full_name"
+// @Failure 404 {object} ErrorResponse "Author not found"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/authors [put]
 func (cfg *ApiConfig) HandlePutApiAuthors(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	request := RequestAuthorWithID{}
@@ -152,6 +198,17 @@ func (cfg *ApiConfig) HandlePutApiAuthors(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
+// @Summary Gets author's books
+// @Description Returns a list of books written by the specified author
+// @Tags Authors
+// @Accept json
+// @Produce json
+// @Param id path string true "Author ID"
+// @Success 200 {array} ResponseBook "Author's books"
+// @Success 400 {object} ErrorResponse "Invalid author ID"
+// @Success 404 {object} ErrorResponse "Author not found"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/authors/{id}/books [get]
 func (cfg *ApiConfig) HandleGetApiAuthorsBooks(w http.ResponseWriter, r *http.Request) {
 	if cfg.DB == nil {
 		common.RespondWithError(w, http.StatusInternalServerError, "DB error")

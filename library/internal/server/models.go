@@ -1,5 +1,6 @@
 package server
 
+// RequestAuthor - author info
 type RequestAuthor struct {
 	FullName  string `json:"full_name"`
 	BirthDate string `json:"birth_date,omitempty"`
@@ -38,4 +39,13 @@ type RequestBookWithID struct {
 	Id      string   `json:"id"`
 	Title   string   `json:"title"`
 	Authors []string `json:"authors"`
+}
+
+type ResponseBookFullInfo struct {
+	Title   string   `json:"title"`
+	Authors []string `json:"authors"`
+}
+
+type ErrorResponse struct {
+	Error string `json:"error"`
 }

@@ -139,8 +139,8 @@ func TestCreateBook_SeveralAuthors(t *testing.T) {
 	s := setupTestServer(db)
 	defer s.Close()
 
-	unknownAuthorId := "0254a622-68fd-4812-a0bc-d997bbe3a740"
-	requestBook := server.RequestBook{Title: "The Twelve Chairs", Authors: []string{author1.id.String(), author2.id.String(), unknownAuthorId}}
+	unknownAuthorId := uuid.New()
+	requestBook := server.RequestBook{Title: "The Twelve Chairs", Authors: []string{author1.id.String(), author2.id.String(), unknownAuthorId.String()}}
 	body, _ := json.Marshal(requestBook)
 
 	response, err := http.Post(s.URL+server.ApiBooksPath, "application/json", bytes.NewBuffer(body))
@@ -324,4 +324,134 @@ func TestUpdateBook_BadRequest(t *testing.T) {
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+}
+
+func TestGetBooks_Success(t *testing.T) {
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	assert.NoError(t, err)
+	defer common.CloseDB(db)
+	cleanupDB(db)
+	authors := []Author{
+		{id: uuid.New(), fullName: "Alexander Pushkin"},
+		{id: uuid.New(), fullName: "Leo Tolstoy"},
+	}
+	AddAuthorsDB(db, authors)
+	book := Book{id: uuid.New(), title: "War and Peace"}
+	AddBooksDB(db, []Book{book})
+	AddBookAuthorsDB(db, book.id.String(), []string{authors[0].id.String(), authors[1].id.String()})
+
+	s := setupTestServer(db)
+	defer s.Close()
+
+	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiBooksPath, book.id))
+	assert.NoError(t, err)
+	defer common.CloseResponseBody(response)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	decoder := json.NewDecoder(response.Body)
+	responseBody := server.ResponseBookFullInfo{}
+	err = decoder.Decode(&responseBody)
+	assert.NoError(t, err)
+	assert.Equal(t, responseBody, server.ResponseBookFullInfo{Title: book.title, Authors: []string{authors[0].fullName, authors[1].fullName}})
+}
+
+func TestGetBooks_InvalidId(t *testing.T) {
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	assert.NoError(t, err)
+	defer common.CloseDB(db)
+	cleanupDB(db)
+
+	s := setupTestServer(db)
+	defer s.Close()
+
+	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiBooksPath, "invalid_id"))
+	assert.NoError(t, err)
+	defer common.CloseResponseBody(response)
+	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+}
+
+func TestGetBooks_UnknownId(t *testing.T) {
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	assert.NoError(t, err)
+	defer common.CloseDB(db)
+	cleanupDB(db)
+
+	s := setupTestServer(db)
+	defer s.Close()
+
+	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiBooksPath, uuid.New()))
+	assert.NoError(t, err)
+	defer common.CloseResponseBody(response)
+	assert.Equal(t, http.StatusNotFound, response.StatusCode)
+}
+
+func TestDeleteBook_Success(t *testing.T) {
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	assert.NoError(t, err)
+	defer common.CloseDB(db)
+	cleanupDB(db)
+	authors := []Author{
+		{id: uuid.New(), fullName: "Alexander Pushkin"},
+		{id: uuid.New(), fullName: "Leo Tolstoy"},
+	}
+	AddAuthorsDB(db, authors)
+	book := Book{id: uuid.New(), title: "War and Peace"}
+	AddBooksDB(db, []Book{book})
+	AddBookAuthorsDB(db, book.id.String(), []string{authors[0].id.String(), authors[1].id.String()})
+
+	s := setupTestServer(db)
+	defer s.Close()
+
+	client := &http.Client{}
+	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminBooksPath, book.id), nil)
+	assert.NoError(t, err)
+
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer common.CloseResponseBody(response)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	books := GetDbBooks(t, db)
+	assert.Equal(t, len(books), 0)
+
+	dbAuthors := GetDbBookAuthors(t, db, book.id)
+	assert.Equal(t, len(dbAuthors), 0)
+}
+
+func TestDeleteBook_InvalidId(t *testing.T) {
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	assert.NoError(t, err)
+	defer common.CloseDB(db)
+	cleanupDB(db)
+
+	s := setupTestServer(db)
+	defer s.Close()
+
+	client := &http.Client{}
+	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminBooksPath, "invalid_id"), nil)
+	assert.NoError(t, err)
+
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer common.CloseResponseBody(response)
+	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+}
+
+func TestDeleteBook_UnknownId(t *testing.T) {
+	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	assert.NoError(t, err)
+	defer common.CloseDB(db)
+	cleanupDB(db)
+
+	s := setupTestServer(db)
+	defer s.Close()
+
+	client := &http.Client{}
+	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminBooksPath, uuid.New()), nil)
+	assert.NoError(t, err)
+
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer common.CloseResponseBody(response)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
 }

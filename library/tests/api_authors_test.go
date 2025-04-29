@@ -183,7 +183,7 @@ func TestGetAuthors_Success(t *testing.T) {
 		{FullName: "Leo Tolstoy", Id: dbAuthors[1].id.String()}})
 }
 
-func TestGetAuthors_NotFound(t *testing.T) {
+func TestGetAuthors_NoAuthors(t *testing.T) {
 	db, err := common.SetupDB("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
@@ -195,7 +195,13 @@ func TestGetAuthors_NotFound(t *testing.T) {
 	response, err := http.Get(s.URL + server.ApiAuthorsPath)
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusNotFound, response.StatusCode)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	decoder := json.NewDecoder(response.Body)
+	responseBody := make([]server.ResponseAuthorShortInfo, 0)
+	err = decoder.Decode(&responseBody)
+	assert.NoError(t, err)
+	assert.Equal(t, len(responseBody), 0)
 }
 
 func TestGetAuthorsId_Success(t *testing.T) {

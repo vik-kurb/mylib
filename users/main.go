@@ -12,6 +12,16 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// @title Users Service API
+// @version 1.0
+// @description API for managing users data.
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /
+
 func main() {
 	db, err := common.SetupDB("./.env", "DB_URL")
 	if err != nil {

@@ -8,10 +8,7 @@ import (
 
 func RespondWithError(w http.ResponseWriter, code int, msg string) {
 	w.WriteHeader(code)
-	type errorResponse struct {
-		Error string `json:"error"`
-	}
-	responseData, err := json.Marshal(errorResponse{Error: msg})
+	responseData, err := json.Marshal(ErrorResponse{Error: msg})
 	if err != nil {
 		log.Print("Failed to build error response: ", err)
 	}

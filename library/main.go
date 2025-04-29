@@ -7,8 +7,20 @@ import (
 	"github.com/bakurvik/mylib/common"
 	"github.com/bakurvik/mylib/library/internal/server"
 
+	_ "github.com/bakurvik/mylib/library/docs"
+
 	_ "github.com/lib/pq"
 )
+
+// @title Library Service API
+// @version 1.0
+// @description API for managing authors and books.
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /
 
 func main() {
 	db, err := common.SetupDB("./.env", "DB_URL")
