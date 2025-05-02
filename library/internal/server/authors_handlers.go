@@ -8,7 +8,7 @@ import (
 
 	"github.com/bakurvik/mylib/library/internal/database"
 
-	"github.com/bakurvik/mylib/common"
+	common "github.com/bakurvik/mylib-common"
 	"github.com/google/uuid"
 )
 

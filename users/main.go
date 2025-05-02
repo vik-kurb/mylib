@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/bakurvik/mylib/common"
+	common "github.com/bakurvik/mylib-common"
 	"github.com/bakurvik/mylib/users/internal/database"
 	"github.com/bakurvik/mylib/users/internal/server"
 

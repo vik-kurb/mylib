@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/bakurvik/mylib/common"
+	common "github.com/bakurvik/mylib-common"
 	"github.com/bakurvik/mylib/library/internal/server"
 
 	_ "github.com/bakurvik/mylib/library/docs"

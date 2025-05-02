@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bakurvik/mylib/common"
+	common "github.com/bakurvik/mylib-common"
 	"github.com/bakurvik/mylib/library/internal/server"
 	"github.com/google/uuid"
 

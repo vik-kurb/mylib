@@ -14,7 +14,7 @@ import (
 
 	"log"
 
-	"github.com/bakurvik/mylib/common"
+	common "github.com/bakurvik/mylib-common"
 	"github.com/google/uuid"
 )
 
