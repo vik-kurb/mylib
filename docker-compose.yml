@@ -1,11 +1,25 @@
 version: "3.8"
 
 services:
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d
+      - pgdata:/var/lib/postgresql/data
+
   library:
     build:
       context: ./library
     ports:
       - "8080:8080"
+    depends_on:
+      - db
     environment:
       - PORT=8080
 
@@ -14,5 +28,10 @@ services:
       context: ./users
     ports:
       - "8081:8080"
+    depends_on:
+      - db
     environment:
       - PORT=8080
+
+volumes:
+  pgdata:

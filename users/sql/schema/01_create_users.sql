@@ -1,4 +1,6 @@
 -- +goose Up
+CREATE DATABASE users;
+
 CREATE TABLE IF NOT EXISTS users(
     id UUID PRIMARY KEY,
     login_name TEXT NOT NULL UNIQUE,

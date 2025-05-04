@@ -19,9 +19,9 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/admin/authors": {
+        "/admin/authors/{id}": {
             "delete": {
-                "description": "Deletes an author from DB with requested ID",
+                "description": "Deletes an author with requested ID from DB",
                 "consumes": [
                     "application/json"
                 ],
@@ -63,7 +63,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/admin/books": {
+        "/admin/books/{id}": {
             "delete": {
                 "description": "Deletes a book from DB with requested ID",
                 "consumes": [
@@ -124,7 +124,10 @@ const docTemplate = `{
                     "200": {
                         "description": "Author's short info",
                         "schema": {
-                            "$ref": "#/definitions/server.ResponseAuthorShortInfo"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/server.ResponseAuthorShortInfo"
+                            }
                         }
                     },
                     "500": {
@@ -282,7 +285,7 @@ const docTemplate = `{
         },
         "/api/authors/{id}/books": {
             "get": {
-                "description": "Gets all author's books from DB",
+                "description": "Returns a list of books written by the specified author",
                 "consumes": [
                     "application/json"
                 ],

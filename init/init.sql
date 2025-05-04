@@ -1,0 +1,2 @@
+CREATE DATABASE library;
+CREATE DATABASE users;

@@ -76,11 +76,11 @@ info:
   title: Library Service API
   version: "1.0"
 paths:
-  /admin/authors:
+  /admin/authors/{id}:
     delete:
       consumes:
       - application/json
-      description: Deletes an author from DB with requested ID
+      description: Deletes an author with requested ID from DB
       parameters:
       - description: Author ID
         in: path
@@ -105,7 +105,7 @@ paths:
       summary: Deletes author
       tags:
       - Admin Authors
-  /admin/books:
+  /admin/books/{id}:
     delete:
       consumes:
       - application/json
@@ -145,7 +145,9 @@ paths:
         "200":
           description: Author's short info
           schema:
-            $ref: '#/definitions/server.ResponseAuthorShortInfo'
+            items:
+              $ref: '#/definitions/server.ResponseAuthorShortInfo'
+            type: array
         "500":
           description: Internal Server Error
           schema:
@@ -252,7 +254,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: Gets all author's books from DB
+      description: Returns a list of books written by the specified author
       parameters:
       - description: Author ID
         in: path
