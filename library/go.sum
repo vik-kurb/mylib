@@ -6,6 +6,8 @@ github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 h1:d+Bc7a5rLufV
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/bakurvik/mylib-common v0.1.1 h1:7GPK8OiDFI5hVzZ+0wRQvE7DSiHPyuMVhY6xc+i2pFA=
 github.com/bakurvik/mylib-common v0.1.1/go.mod h1:BX9rlCQwVdmmd1rTFhJaVcE8AF+6zfo9cISnHPsN+/o=
+github.com/bakurvik/mylib-common v0.1.2 h1:cOV0cPZVDbKIKTNmeu9+elVDYmagn5FZKiIbCoG0BzA=
+github.com/bakurvik/mylib-common v0.1.2/go.mod h1:BX9rlCQwVdmmd1rTFhJaVcE8AF+6zfo9cISnHPsN+/o=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=

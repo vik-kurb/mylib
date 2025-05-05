@@ -12,7 +12,4 @@ done
 
 goose -dir /schema postgres "postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable" up
 
-echo "All env vars:"
-env
-
 exec ./users
