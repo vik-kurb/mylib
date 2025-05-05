@@ -381,4 +381,19 @@ paths:
       summary: Gets book
       tags:
       - Books
+  /ping:
+    get:
+      consumes:
+      - application/json
+      description: Checks server health. Returns 200 OK if server is up.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Ping the server
+      tags:
+      - Health
 swagger: "2.0"

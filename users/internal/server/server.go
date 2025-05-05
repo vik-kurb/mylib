@@ -1,9 +1,18 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/bakurvik/mylib/users/internal/database"
+)
+
+const (
+	PingPath       = "/ping"
+	ApiUsersPath   = "/api/users"
+	ApiRevokePath  = "/api/revoke"
+	ApiLoginPath   = "/api/login"
+	ApiRefreshPath = "/api/refresh"
 )
 
 type ApiConfig struct {
@@ -12,11 +21,12 @@ type ApiConfig struct {
 }
 
 func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
-	sm.HandleFunc("POST /api/users", apiCfg.HandlePostApiUsers)
-	sm.HandleFunc("POST /api/login", apiCfg.HandlePostApiLogin)
-	sm.HandleFunc("POST /api/refresh", apiCfg.HandlePostApiRefresh)
-	sm.HandleFunc("POST /api/revoke", apiCfg.HandlePostApiRevoke)
-	sm.HandleFunc("PUT /api/users", apiCfg.HandlePutApiUsers)
-	sm.HandleFunc("GET /api/users/{userID}", apiCfg.HandleGetApiUsers)
-	sm.HandleFunc("DELETE /api/users", apiCfg.HandleDeleteApiUsers)
+	sm.HandleFunc("GET "+PingPath, apiCfg.HandlePing)
+	sm.HandleFunc("POST "+ApiUsersPath, apiCfg.HandlePostApiUsers)
+	sm.HandleFunc("POST "+ApiLoginPath, apiCfg.HandlePostApiLogin)
+	sm.HandleFunc("POST "+ApiRefreshPath, apiCfg.HandlePostApiRefresh)
+	sm.HandleFunc("POST "+ApiRevokePath, apiCfg.HandlePostApiRevoke)
+	sm.HandleFunc("PUT "+ApiUsersPath, apiCfg.HandlePutApiUsers)
+	sm.HandleFunc(fmt.Sprintf("GET %v/{userID}", ApiUsersPath), apiCfg.HandleGetApiUsers)
+	sm.HandleFunc("DELETE "+ApiUsersPath, apiCfg.HandleDeleteApiUsers)
 }

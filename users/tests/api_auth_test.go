@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bakurvik/mylib/common"
+	common "github.com/bakurvik/mylib-common"
 	"github.com/bakurvik/mylib/users/internal/auth"
 	"github.com/bakurvik/mylib/users/internal/server"
 
@@ -18,9 +18,6 @@ import (
 )
 
 const (
-	apiLoginPath       = "/api/login"
-	apiRefreshPath     = "/api/refresh"
-	apiRevokePath      = "/api/revoke"
 	insertRefreshToken = "INSERT INTO refresh_tokens(token, user_id, expires_at, revoked_at) VALUES (gen_random_uuid(), $1, $2, $3) RETURNING token"
 )
 
@@ -51,7 +48,7 @@ func TestLogin_Success(t *testing.T) {
 	request := server.RequestLogin{Password: password, Email: email}
 	requestJson, _ := json.Marshal(request)
 
-	response, err := http.Post(s.URL+apiLoginPath, "application/json", bytes.NewBuffer(requestJson))
+	response, err := http.Post(s.URL+server.ApiLoginPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
@@ -91,7 +88,7 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	request := server.RequestUser{LoginName: login, Password: anotherPassword, Email: email}
 	requestJson, _ := json.Marshal(request)
 
-	response, err := http.Post(s.URL+apiLoginPath, "application/json", bytes.NewBuffer(requestJson))
+	response, err := http.Post(s.URL+server.ApiLoginPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
@@ -111,7 +108,7 @@ func TestLogin_NoUser(t *testing.T) {
 	request := server.RequestUser{LoginName: "login", Password: password, Email: email}
 	requestJson, _ := json.Marshal(request)
 
-	response, err := http.Post(s.URL+apiLoginPath, "application/json", bytes.NewBuffer(requestJson))
+	response, err := http.Post(s.URL+server.ApiLoginPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
@@ -129,7 +126,7 @@ func TestRefresh_Success(t *testing.T) {
 	s := setupTestServer(db)
 	defer s.Close()
 
-	request, requestErr := http.NewRequest("POST", s.URL+apiRefreshPath, nil)
+	request, requestErr := http.NewRequest("POST", s.URL+server.ApiRefreshPath, nil)
 	assert.NoError(t, requestErr)
 	request.AddCookie(&http.Cookie{
 		Name:     cookieRefreshToken,
@@ -177,10 +174,10 @@ func TestRefresh_NoCookie(t *testing.T) {
 	expiresAt := time.Now().Add(time.Hour)
 	addDBToken(db, RefreshToken{userId: userID, expiresAt: expiresAt})
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	request, requestErr := http.NewRequest("POST", server.URL+apiRefreshPath, nil)
+	request, requestErr := http.NewRequest("POST", s.URL+server.ApiRefreshPath, nil)
 	assert.NoError(t, requestErr)
 
 	client := &http.Client{}
@@ -196,10 +193,10 @@ func TestRefresh_UnknownToken(t *testing.T) {
 	defer common.CloseDB(db)
 	cleanupDB(db)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	request, requestErr := http.NewRequest("POST", server.URL+apiRefreshPath, nil)
+	request, requestErr := http.NewRequest("POST", s.URL+server.ApiRefreshPath, nil)
 	assert.NoError(t, requestErr)
 	request.AddCookie(&http.Cookie{
 		Name:     cookieRefreshToken,
@@ -227,10 +224,10 @@ func TestRevoke_Success(t *testing.T) {
 	expiresAt := time.Now().Add(time.Hour)
 	token := addDBToken(db, RefreshToken{userId: userID, expiresAt: expiresAt})
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	request, requestErr := http.NewRequest("POST", server.URL+apiRevokePath, nil)
+	request, requestErr := http.NewRequest("POST", s.URL+server.ApiRevokePath, nil)
 	assert.NoError(t, requestErr)
 	request.AddCookie(&http.Cookie{
 		Name:     cookieRefreshToken,
@@ -261,10 +258,10 @@ func TestRevoke_NoCookie(t *testing.T) {
 	expiresAt := time.Now().Add(time.Hour)
 	token := addDBToken(db, RefreshToken{userId: userID, expiresAt: expiresAt})
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	request, requestErr := http.NewRequest("POST", server.URL+apiRevokePath, nil)
+	request, requestErr := http.NewRequest("POST", s.URL+server.ApiRevokePath, nil)
 	assert.NoError(t, requestErr)
 
 	client := &http.Client{}
@@ -283,10 +280,10 @@ func TestRevoke_UnknownToken(t *testing.T) {
 	defer common.CloseDB(db)
 	cleanupDB(db)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	request, requestErr := http.NewRequest("POST", server.URL+apiRevokePath, nil)
+	request, requestErr := http.NewRequest("POST", s.URL+server.ApiRevokePath, nil)
 	assert.NoError(t, requestErr)
 	request.AddCookie(&http.Cookie{
 		Name:     cookieRefreshToken,
@@ -303,4 +300,18 @@ func TestRevoke_UnknownToken(t *testing.T) {
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusNoContent, response.StatusCode)
+}
+
+func TestPing_Success(t *testing.T) {
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
+	assert.NoError(t, err)
+	defer common.CloseDB(db)
+
+	s := setupTestServer(db)
+	defer s.Close()
+
+	response, err := http.Get(s.URL + server.PingPath)
+	assert.NoError(t, err)
+	defer common.CloseResponseBody(response)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
 }

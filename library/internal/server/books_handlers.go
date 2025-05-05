@@ -105,7 +105,7 @@ func updateBookAuthors(queries *database.Queries, w http.ResponseWriter, r *http
 	return nil
 }
 
-// @Summary Creates new book
+// @Summary Create new book
 // @Description Creates new book and stores it in DB
 // @Tags Books
 // @Accept json
@@ -169,7 +169,7 @@ func (cfg *ApiConfig) HandlePostApiBooks(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-// @Summary Updates book
+// @Summary Update book
 // @Description Updates existing book's info in DB
 // @Tags Books
 // @Accept json
@@ -240,15 +240,15 @@ func (cfg *ApiConfig) HandlePutApiBooks(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 }
 
-// @Summary Gets book
+// @Summary Get book
 // @Description Gets book with requested ID from DB
 // @Tags Books
 // @Accept json
 // @Produce json
 // @Param id path string true "Book ID"
 // @Success 200 {object} ResponseBookFullInfo "Book's full info"
-// @Success 400 {object} ErrorResponse "Invalid book ID"
-// @Success 404 {object} ErrorResponse "Book not found"
+// @Failure 400 {object} ErrorResponse "Invalid book ID"
+// @Failure 404 {object} ErrorResponse "Book not found"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/books/{id} [get]
 func (cfg *ApiConfig) HandleGetApiBooks(w http.ResponseWriter, r *http.Request) {
@@ -308,7 +308,7 @@ func (cfg *ApiConfig) HandleGetApiBooks(w http.ResponseWriter, r *http.Request) 
 	common.RespondWithJSON(w, http.StatusOK, ResponseBookFullInfo{Title: bookTitle, Authors: authors}, nil)
 }
 
-// @Summary Deletes book
+// @Summary Delete book
 // @Description Deletes a book from DB with requested ID
 // @Tags Admin Books
 // @Accept json

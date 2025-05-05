@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bakurvik/mylib/common"
+	common "github.com/bakurvik/mylib-common"
 	"github.com/bakurvik/mylib/users/internal/auth"
 	"github.com/bakurvik/mylib/users/internal/server"
 
@@ -21,8 +21,7 @@ import (
 )
 
 const (
-	apiUsersPath = "/api/users"
-	selectUsers  = "SELECT login_name, email, birth_date, hashed_password, created_at, updated_at FROM users WHERE id = $1"
+	selectUsers = "SELECT login_name, email, birth_date, hashed_password, created_at, updated_at FROM users WHERE id = $1"
 )
 
 func getDbUser(db *sql.DB, id string) *User {
@@ -57,7 +56,7 @@ func TestCreateUser_Success(t *testing.T) {
 	request := server.RequestUser{LoginName: "login", Email: "login@email.ru", BirthDate: "01.02.2003", Password: "password"}
 	requestJson, _ := json.Marshal(request)
 
-	response, err := http.Post(s.URL+apiUsersPath, "application/json", bytes.NewBuffer(requestJson))
+	response, err := http.Post(s.URL+server.ApiUsersPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusCreated, response.StatusCode)
@@ -100,7 +99,7 @@ func TestCreateUser_LoginExists(t *testing.T) {
 	request := server.RequestUser{LoginName: loginName, Email: "another_login@email.ru", BirthDate: "01.02.2003", Password: "password"}
 	requestJson, _ := json.Marshal(request)
 
-	response, err := http.Post(s.URL+apiUsersPath, "application/json", bytes.NewBuffer(requestJson))
+	response, err := http.Post(s.URL+server.ApiUsersPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusConflict, response.StatusCode)
@@ -120,7 +119,7 @@ func TestCreateUser_EmailExists(t *testing.T) {
 	request := server.RequestUser{LoginName: "another_login", Email: email, BirthDate: "01.02.2003", Password: "password"}
 	requestJson, _ := json.Marshal(request)
 
-	response, err := http.Post(s.URL+apiUsersPath, "application/json", bytes.NewBuffer(requestJson))
+	response, err := http.Post(s.URL+server.ApiUsersPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusConflict, response.StatusCode)
@@ -140,7 +139,7 @@ func TestUpdateUser_Success(t *testing.T) {
 	req := server.RequestUser{LoginName: "another_login", Email: "another_login@email.ru", BirthDate: "10.05.2014", Password: newPassword}
 	requestJson, _ := json.Marshal(req)
 
-	request, requestErr := http.NewRequest("PUT", s.URL+apiUsersPath, bytes.NewBuffer(requestJson))
+	request, requestErr := http.NewRequest("PUT", s.URL+server.ApiUsersPath, bytes.NewBuffer(requestJson))
 	assert.NoError(t, requestErr)
 	uuid, _ := uuid.Parse(userID)
 	accessToken, _ := auth.MakeJWT(uuid, authSecretKey, time.Hour)
@@ -174,7 +173,7 @@ func TestUpdateUser_InvalidToken(t *testing.T) {
 	req := server.RequestUser{LoginName: "another_login", Email: "another_login@email.ru", BirthDate: "10.05.2014", Password: newPassword}
 	requestJson, _ := json.Marshal(req)
 
-	request, requestErr := http.NewRequest("PUT", s.URL+apiUsersPath, bytes.NewBuffer(requestJson))
+	request, requestErr := http.NewRequest("PUT", s.URL+server.ApiUsersPath, bytes.NewBuffer(requestJson))
 	assert.NoError(t, requestErr)
 	request.Header.Add("Authorization", "Bearer invalid_token")
 
@@ -199,7 +198,7 @@ func TestUpdateUser_NoToken(t *testing.T) {
 	req := server.RequestUser{LoginName: "another_login", Email: "another_login@email.ru", BirthDate: "10.05.2014", Password: newPassword}
 	requestJson, _ := json.Marshal(req)
 
-	request, requestErr := http.NewRequest("PUT", s.URL+apiUsersPath, bytes.NewBuffer(requestJson))
+	request, requestErr := http.NewRequest("PUT", s.URL+server.ApiUsersPath, bytes.NewBuffer(requestJson))
 	assert.NoError(t, requestErr)
 
 	client := &http.Client{}
@@ -217,10 +216,10 @@ func TestGetUser_AuthorizedAsRequestUser(t *testing.T) {
 	user := User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"}
 	userID := addDBUser(db, user)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	request, requestErr := http.NewRequest("GET", fmt.Sprintf("%v%v/{%v}", server.URL, apiUsersPath, userID), nil)
+	request, requestErr := http.NewRequest("GET", fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiUsersPath, userID), nil)
 	assert.NoError(t, requestErr)
 	uuid, _ := uuid.Parse(userID)
 	accessToken, _ := auth.MakeJWT(uuid, authSecretKey, time.Hour)
@@ -246,10 +245,10 @@ func TestGetUser_AuthorizedAsAnotherUser(t *testing.T) {
 	user := User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"}
 	userID := addDBUser(db, user)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	request, requestErr := http.NewRequest("GET", fmt.Sprintf("%v%v/{%v}", server.URL, apiUsersPath, userID), nil)
+	request, requestErr := http.NewRequest("GET", fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiUsersPath, userID), nil)
 	assert.NoError(t, requestErr)
 	anotherUserId := "4fc40366-ff15-4653-be30-1bba21f016c1"
 	uuid, _ := uuid.Parse(anotherUserId)
@@ -276,10 +275,10 @@ func TestGetUser_Unauthorized(t *testing.T) {
 	user := User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"}
 	userID := addDBUser(db, user)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	request, requestErr := http.NewRequest("GET", fmt.Sprintf("%v%v/{%v}", server.URL, apiUsersPath, userID), nil)
+	request, requestErr := http.NewRequest("GET", fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiUsersPath, userID), nil)
 	assert.NoError(t, requestErr)
 
 	client := &http.Client{}
@@ -302,10 +301,10 @@ func TestDeleteUser_Authorized(t *testing.T) {
 	user := User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"}
 	userID := addDBUser(db, user)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	request, requestErr := http.NewRequest("DELETE", server.URL+apiUsersPath, nil)
+	request, requestErr := http.NewRequest("DELETE", s.URL+server.ApiUsersPath, nil)
 	assert.NoError(t, requestErr)
 	uuid, _ := uuid.Parse(userID)
 	accessToken, _ := auth.MakeJWT(uuid, authSecretKey, time.Hour)
@@ -327,10 +326,10 @@ func TestDeleteUser_Unauthorized(t *testing.T) {
 	defer common.CloseDB(db)
 	cleanupDB(db)
 
-	server := setupTestServer(db)
-	defer server.Close()
+	s := setupTestServer(db)
+	defer s.Close()
 
-	request, requestErr := http.NewRequest("DELETE", server.URL+apiUsersPath, nil)
+	request, requestErr := http.NewRequest("DELETE", s.URL+server.ApiUsersPath, nil)
 	assert.NoError(t, requestErr)
 
 	client := &http.Client{}

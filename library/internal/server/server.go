@@ -22,7 +22,7 @@ type ApiConfig struct {
 
 func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
 	// Ping
-	sm.HandleFunc("POST "+PingPath, apiCfg.HandlePing)
+	sm.HandleFunc("GET "+PingPath, apiCfg.HandlePing)
 
 	// Authors
 	sm.HandleFunc("POST "+ApiAuthorsPath, apiCfg.HandlePostApiAuthors)

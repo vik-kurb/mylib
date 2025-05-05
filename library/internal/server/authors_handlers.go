@@ -23,7 +23,7 @@ func (cfg *ApiConfig) HandlePing(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// @Summary Creates new author
+// @Summary Create new author
 // @Description Creates new author and stores it in DB
 // @Tags Authors
 // @Accept json
@@ -61,7 +61,7 @@ func (cfg *ApiConfig) HandlePostApiAuthors(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusCreated)
 }
 
-// @Summary Gets authors
+// @Summary Get authors
 // @Description Gets all authors from DB
 // @Tags Authors
 // @Accept json
@@ -91,7 +91,7 @@ func (cfg *ApiConfig) HandleGetApiAuthors(w http.ResponseWriter, r *http.Request
 	common.RespondWithJSON(w, http.StatusOK, responseAuthors, nil)
 }
 
-// @Summary Gets author
+// @Summary Get author
 // @Description Gets an author with requested ID from DB
 // @Tags Authors
 // @Accept json
@@ -99,7 +99,7 @@ func (cfg *ApiConfig) HandleGetApiAuthors(w http.ResponseWriter, r *http.Request
 // @Param id path string true "Author ID"
 // @Success 200 {object} ResponseAuthorFullInfo "Author's full info"
 // @Success 400 {object} ErrorResponse "Invalid author ID"
-// @Success 404 {object} ErrorResponse "Author not found"
+// @Failure 404 {object} ErrorResponse "Author not found"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/authors/{id} [get]
 func (cfg *ApiConfig) HandleGetApiAuthorsId(w http.ResponseWriter, r *http.Request) {
@@ -127,7 +127,7 @@ func (cfg *ApiConfig) HandleGetApiAuthorsId(w http.ResponseWriter, r *http.Reque
 	common.RespondWithJSON(w, http.StatusOK, ResponseAuthorFullInfo{FullName: author.FullName, BirthDate: author.BirthDate.Time.Format(common.DateFormat), DeathDate: author.DeathDate.Time.Format(common.DateFormat)}, nil)
 }
 
-// @Summary Deletes author
+// @Summary Delete author
 // @Description Deletes an author with requested ID from DB
 // @Tags Admin Authors
 // @Accept json
@@ -159,7 +159,7 @@ func (cfg *ApiConfig) HandleDeleteAdminAuthors(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusOK)
 }
 
-// @Summary Updates author
+// @Summary Update author
 // @Description Updates existing author's info in DB
 // @Tags Authors
 // @Accept json
@@ -209,7 +209,7 @@ func (cfg *ApiConfig) HandlePutApiAuthors(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
-// @Summary Gets author's books
+// @Summary Get author's books
 // @Description Returns a list of books written by the specified author
 // @Tags Authors
 // @Accept json
@@ -217,7 +217,7 @@ func (cfg *ApiConfig) HandlePutApiAuthors(w http.ResponseWriter, r *http.Request
 // @Param id path string true "Author ID"
 // @Success 200 {array} ResponseBook "Author's books"
 // @Success 400 {object} ErrorResponse "Invalid author ID"
-// @Success 404 {object} ErrorResponse "Author not found"
+// @Failure 404 {object} ErrorResponse "Author not found"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/authors/{id}/books [get]
 func (cfg *ApiConfig) HandleGetApiAuthorsBooks(w http.ResponseWriter, r *http.Request) {

@@ -103,6 +103,29 @@ func checkAuthorization(cfg *ApiConfig, r *http.Request) (uuid.UUID, error) {
 	return userID, nil
 }
 
+// @Summary Ping the server
+// @Description  Checks server health. Returns 200 OK if server is up.
+// @Tags Health
+// @Accept json
+// @Produce json
+// @Success 200 {string} string
+// @Router /ping [get]
+func (cfg *ApiConfig) HandlePing(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
+
+// @Summary Create new user
+// @Description Creates new user and stores it in DB
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param request body RequestUser true "User's info"
+// @Success 201 {object} ResponseToken "Created successfully"
+// @Header 201 {string} Set-Cookie "HTTP-only cookie named refresh_token"
+// @Failure 400 {object} ErrorResponse "Invalid request body"
+// @Failure 409 {object} ErrorResponse "User with request info already exists"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/users [post]
 func (cfg *ApiConfig) HandlePostApiUsers(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	request := RequestUser{}
@@ -132,6 +155,19 @@ func (cfg *ApiConfig) HandlePostApiUsers(w http.ResponseWriter, r *http.Request)
 	makeTokensAndRespond(w, r, cfg, userID, http.StatusCreated)
 }
 
+// @Summary Login user
+// @Description Checks password and returns access and refresh tokens
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body RequestLogin true "User's login data"
+// @Success 200 {object} ResponseToken "Logined successfully"
+// @Header 200 {string} Set-Cookie "HTTP-only cookie named refresh_token"
+// @Failure 400 {object} ErrorResponse "Invalid request body"
+// @Failure 401 {object} ErrorResponse "Invalid password"
+// @Failure 404 {object} ErrorResponse "User not found"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/login [post]
 func (cfg *ApiConfig) HandlePostApiLogin(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	request := RequestLogin{}
@@ -160,6 +196,17 @@ func (cfg *ApiConfig) HandlePostApiLogin(w http.ResponseWriter, r *http.Request)
 	makeTokensAndRespond(w, r, cfg, user.ID, http.StatusOK)
 }
 
+// @Summary Refresh tokens
+// @Description Checks refresh token and returns new access and refresh tokens
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param refresh_token cookie string true "Refresh token"
+// @Success 200 {object} ResponseToken "Refreshed tokens successfully"
+// @Header 200 {string} Set-Cookie "HTTP-only cookie named refresh_token"
+// @Failure 401 {object} ErrorResponse "Invalid refresh token"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/refresh [post]
 func (cfg *ApiConfig) HandlePostApiRefresh(w http.ResponseWriter, r *http.Request) {
 	cookie, cookieErr := r.Cookie(refreshTokenName)
 	if cookieErr != nil || cookie == nil {
@@ -183,6 +230,16 @@ func (cfg *ApiConfig) HandlePostApiRefresh(w http.ResponseWriter, r *http.Reques
 	makeTokensAndRespond(w, r, cfg, userID, http.StatusOK)
 }
 
+// @Summary Revoke token
+// @Description Revokes refresh token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param refresh_token cookie string true "Refresh token"
+// @Success 204 {string} "Revoked token successfully"
+// @Failure 401 {object} ErrorResponse "No refresh token in cookie"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/revoke [post]
 func (cfg *ApiConfig) HandlePostApiRevoke(w http.ResponseWriter, r *http.Request) {
 	cookie, cookieErr := r.Cookie(refreshTokenName)
 	if cookieErr != nil || cookie == nil {
@@ -194,6 +251,18 @@ func (cfg *ApiConfig) HandlePostApiRevoke(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// @Summary Update user
+// @Description Updates existing user's info in DB
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param request body RequestUser true "User's info"
+// @Param refresh_token cookie string true "Refresh token"
+// @Success 204 {string} "Updated successfully"
+// @Failure 400 {object} ErrorResponse "Invalid request body"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/users [put]
 func (cfg *ApiConfig) HandlePutApiUsers(w http.ResponseWriter, r *http.Request) {
 	userID, authErr := checkAuthorization(cfg, r)
 	if authErr != nil {
@@ -229,6 +298,18 @@ func (cfg *ApiConfig) HandlePutApiUsers(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// @Summary Get user info
+// @Description Gets user from DB
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param userID path string true "Author ID"
+// @Success 200 {object} ResponseUser "User's full info"
+// @Success 400 {object} ErrorResponse "Invalid user ID"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 404 {object} ErrorResponse "User not found"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/users/{id} [get]
 func (cfg *ApiConfig) HandleGetApiUsers(w http.ResponseWriter, r *http.Request) {
 	requestUserID := r.PathValue("userID")
 	if len(requestUserID) == 0 {
@@ -259,6 +340,16 @@ func (cfg *ApiConfig) HandleGetApiUsers(w http.ResponseWriter, r *http.Request) 
 	common.RespondWithJSON(w, http.StatusOK, response, nil)
 }
 
+// @Summary Delete user
+// @Description Deletes user from DB
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param refresh_token cookie string true "Refresh token"
+// @Success 204 {string} "Deleted successfully"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/users [delete]
 func (cfg *ApiConfig) HandleDeleteApiUsers(w http.ResponseWriter, r *http.Request) {
 	userID, authErr := checkAuthorization(cfg, r)
 	if authErr != nil {
