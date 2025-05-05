@@ -1,4 +1,44 @@
 basePath: /
+definitions:
+  server.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  server.RequestLogin:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  server.RequestUser:
+    properties:
+      birth_date:
+        type: string
+      email:
+        type: string
+      login_name:
+        type: string
+      password:
+        type: string
+    type: object
+  server.ResponseToken:
+    properties:
+      id:
+        type: string
+      token:
+        type: string
+    type: object
+  server.ResponseUser:
+    properties:
+      birth_date:
+        type: string
+      email:
+        type: string
+      login:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -8,5 +48,238 @@ info:
     url: https://opensource.org/licenses/MIT
   title: Users Service API
   version: "1.0"
-paths: {}
+paths:
+  /api/login:
+    post:
+      consumes:
+      - application/json
+      description: Checks password and returns access and refresh tokens
+      parameters:
+      - description: User's login data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/server.RequestLogin'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logined successfully
+          headers:
+            Set-Cookie:
+              description: HTTP-only cookie named refresh_token
+              type: string
+          schema:
+            $ref: '#/definitions/server.ResponseToken'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "401":
+          description: Invalid password
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Login user
+      tags:
+      - Auth
+  /api/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Checks refresh token from an HTTP-only cookie and returns new access
+        and refresh tokens
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Refreshed tokens successfully
+          headers:
+            Set-Cookie:
+              description: HTTP-only cookie named refresh_token
+              type: string
+          schema:
+            $ref: '#/definitions/server.ResponseToken'
+        "401":
+          description: Invalid refresh token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Refresh tokens
+      tags:
+      - Auth
+  /api/revoke:
+    post:
+      consumes:
+      - application/json
+      description: Revokes refresh token from an HTTP-only cookie
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: No refresh token in cookie
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Revoke token
+      tags:
+      - Auth
+  /api/users:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes user from DB. Uses refresh token from an HTTP-only cookie
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Delete user
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      description: Creates new user and stores it in DB
+      parameters:
+      - description: User's info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/server.RequestUser'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created successfully
+          headers:
+            Set-Cookie:
+              description: HTTP-only cookie named refresh_token
+              type: string
+          schema:
+            $ref: '#/definitions/server.ResponseToken'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "409":
+          description: User with request info already exists
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Create new user
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Updates existing user's info in DB. Uses refresh token from an
+        HTTP-only cookie
+      parameters:
+      - description: User's info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/server.RequestUser'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Update user
+      tags:
+      - Users
+  /api/users/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Gets user from DB
+      parameters:
+      - description: Author ID
+        in: path
+        name: userID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User's full info
+          schema:
+            $ref: '#/definitions/server.ResponseUser'
+        "400":
+          description: Invalid user ID
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Get user info
+      tags:
+      - Users
+  /ping:
+    get:
+      consumes:
+      - application/json
+      description: Checks server health. Returns 200 OK if server is up.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Ping the server
+      tags:
+      - Health
 swagger: "2.0"

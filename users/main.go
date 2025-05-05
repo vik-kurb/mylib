@@ -9,6 +9,8 @@ import (
 	"github.com/bakurvik/mylib/users/internal/database"
 	"github.com/bakurvik/mylib/users/internal/server"
 
+	_ "github.com/bakurvik/mylib/users/docs"
+
 	_ "github.com/lib/pq"
 )
 

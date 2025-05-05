@@ -22,3 +22,7 @@ type ResponseUser struct {
 	Email     string `json:"email"`
 	BirthDate string `json:"birth_date"`
 }
+
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
