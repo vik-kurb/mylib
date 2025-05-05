@@ -23,7 +23,7 @@ import (
 // @BasePath /
 
 func main() {
-	db, err := common.SetupDB("./.env", "DB_URL")
+	db, err := common.SetupDB("./.env")
 	if err != nil {
 		log.Fatal("Failed setup db ", err)
 	}

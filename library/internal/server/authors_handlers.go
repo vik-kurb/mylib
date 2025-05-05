@@ -12,6 +12,17 @@ import (
 	"github.com/google/uuid"
 )
 
+// @Summary Ping the server
+// @Description  Checks server health. Returns 200 OK if server is up.
+// @Tags Health
+// @Accept json
+// @Produce json
+// @Success 200 {string} string
+// @Router /ping [get]
+func (cfg *ApiConfig) HandlePing(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
+
 // @Summary Creates new author
 // @Description Creates new author and stores it in DB
 // @Tags Authors

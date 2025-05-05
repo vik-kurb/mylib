@@ -98,7 +98,7 @@ func GetDbBookAuthors(t *testing.T, db *sql.DB, book_id uuid.UUID) []uuid.UUID {
 }
 
 func TestCreateBook_Success(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -127,7 +127,7 @@ func TestCreateBook_Success(t *testing.T) {
 }
 
 func TestCreateBook_SeveralAuthors(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -159,7 +159,7 @@ func TestCreateBook_SeveralAuthors(t *testing.T) {
 }
 
 func TestCreateBook_NoAuthors(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -184,7 +184,7 @@ func TestCreateBook_NoAuthors(t *testing.T) {
 }
 
 func TestCreateBook_BadRequest(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -202,7 +202,7 @@ func TestCreateBook_BadRequest(t *testing.T) {
 }
 
 func TestUpdateBook_Success(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -241,7 +241,7 @@ func TestUpdateBook_Success(t *testing.T) {
 }
 
 func TestUpdateBook_MergeAuthors(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -283,7 +283,7 @@ func TestUpdateBook_MergeAuthors(t *testing.T) {
 }
 
 func TestUpdateBook_UnknownBook(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -305,7 +305,7 @@ func TestUpdateBook_UnknownBook(t *testing.T) {
 }
 
 func TestUpdateBook_BadRequest(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -327,7 +327,7 @@ func TestUpdateBook_BadRequest(t *testing.T) {
 }
 
 func TestGetBooks_Success(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -356,7 +356,7 @@ func TestGetBooks_Success(t *testing.T) {
 }
 
 func TestGetBooks_InvalidId(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -371,7 +371,7 @@ func TestGetBooks_InvalidId(t *testing.T) {
 }
 
 func TestGetBooks_UnknownId(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -386,7 +386,7 @@ func TestGetBooks_UnknownId(t *testing.T) {
 }
 
 func TestDeleteBook_Success(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -419,7 +419,7 @@ func TestDeleteBook_Success(t *testing.T) {
 }
 
 func TestDeleteBook_InvalidId(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -438,7 +438,7 @@ func TestDeleteBook_InvalidId(t *testing.T) {
 }
 
 func TestDeleteBook_UnknownId(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)

@@ -13,6 +13,7 @@ const (
 	AdminAuthorsPath = "/admin/authors"
 	ApiBooksPath     = "/api/books"
 	AdminBooksPath   = "/admin/books"
+	PingPath         = "/ping"
 )
 
 type ApiConfig struct {
@@ -20,6 +21,9 @@ type ApiConfig struct {
 }
 
 func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
+	// Ping
+	sm.HandleFunc("POST "+PingPath, apiCfg.HandlePing)
+
 	// Authors
 	sm.HandleFunc("POST "+ApiAuthorsPath, apiCfg.HandlePostApiAuthors)
 	sm.HandleFunc("GET "+ApiAuthorsPath, apiCfg.HandleGetApiAuthors)

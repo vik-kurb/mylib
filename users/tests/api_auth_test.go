@@ -36,7 +36,7 @@ func addDBToken(db *sql.DB, refreshToken RefreshToken) string {
 }
 
 func TestLogin_Success(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -74,7 +74,7 @@ func TestLogin_Success(t *testing.T) {
 }
 
 func TestLogin_InvalidPassword(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -98,7 +98,7 @@ func TestLogin_InvalidPassword(t *testing.T) {
 }
 
 func TestLogin_NoUser(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -118,7 +118,7 @@ func TestLogin_NoUser(t *testing.T) {
 }
 
 func TestRefresh_Success(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -169,7 +169,7 @@ func TestRefresh_Success(t *testing.T) {
 }
 
 func TestRefresh_NoCookie(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -191,7 +191,7 @@ func TestRefresh_NoCookie(t *testing.T) {
 }
 
 func TestRefresh_UnknownToken(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -219,7 +219,7 @@ func TestRefresh_UnknownToken(t *testing.T) {
 }
 
 func TestRevoke_Success(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -253,7 +253,7 @@ func TestRevoke_Success(t *testing.T) {
 }
 
 func TestRevoke_NoCookie(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -278,7 +278,7 @@ func TestRevoke_NoCookie(t *testing.T) {
 }
 
 func TestRevoke_UnknownToken(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)

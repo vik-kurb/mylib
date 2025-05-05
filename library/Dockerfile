@@ -8,8 +8,6 @@ RUN go mod download
 
 COPY . .
 
-RUN apt-get update && apt-get install -y file
-
 RUN git clone https://github.com/pressly/goose.git /goose-src && \
     cd /goose-src/cmd/goose && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/goose

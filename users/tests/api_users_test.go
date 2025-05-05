@@ -46,7 +46,7 @@ func getUserFromResponse(response *http.Response) server.ResponseUser {
 }
 
 func TestCreateUser_Success(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -87,7 +87,7 @@ func TestCreateUser_Success(t *testing.T) {
 }
 
 func TestCreateUser_LoginExists(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -107,7 +107,7 @@ func TestCreateUser_LoginExists(t *testing.T) {
 }
 
 func TestCreateUser_EmailExists(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -127,7 +127,7 @@ func TestCreateUser_EmailExists(t *testing.T) {
 }
 
 func TestUpdateUser_Success(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -161,7 +161,7 @@ func TestUpdateUser_Success(t *testing.T) {
 }
 
 func TestUpdateUser_InvalidToken(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -186,7 +186,7 @@ func TestUpdateUser_InvalidToken(t *testing.T) {
 }
 
 func TestUpdateUser_NoToken(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -210,7 +210,7 @@ func TestUpdateUser_NoToken(t *testing.T) {
 }
 
 func TestGetUser_AuthorizedAsRequestUser(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -239,7 +239,7 @@ func TestGetUser_AuthorizedAsRequestUser(t *testing.T) {
 }
 
 func TestGetUser_AuthorizedAsAnotherUser(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -269,7 +269,7 @@ func TestGetUser_AuthorizedAsAnotherUser(t *testing.T) {
 }
 
 func TestGetUser_Unauthorized(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -295,7 +295,7 @@ func TestGetUser_Unauthorized(t *testing.T) {
 }
 
 func TestDeleteUser_Authorized(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
@@ -322,7 +322,7 @@ func TestDeleteUser_Authorized(t *testing.T) {
 }
 
 func TestDeleteUser_Unauthorized(t *testing.T) {
-	db, err := common.SetupDB("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 	cleanupDB(db)
