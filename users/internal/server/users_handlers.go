@@ -108,7 +108,7 @@ func (cfg *ApiConfig) HandlePostApiUsers(w http.ResponseWriter, r *http.Request)
 }
 
 // @Summary Update user
-// @Description Updates existing user's info in DB. Uses refresh token from an HTTP-only cookie
+// @Description Updates existing user's info in DB. Uses access token from an HTTP-only cookie
 // @Tags Users
 // @Accept json
 // @Produce json
@@ -196,7 +196,7 @@ func (cfg *ApiConfig) HandleGetApiUsers(w http.ResponseWriter, r *http.Request) 
 }
 
 // @Summary Delete user
-// @Description Deletes user from DB. Uses refresh token from an HTTP-only cookie
+// @Description Deletes user from DB. Uses access token from an HTTP-only cookie
 // @Tags Users
 // @Accept json
 // @Produce json

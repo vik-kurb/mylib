@@ -33,5 +33,15 @@ services:
     environment:
       - PORT=8080
 
+  user-reading:
+    build:
+      context: ./user-reading
+    ports:
+      - "8082:8080"
+    depends_on:
+      - db
+    environment:
+      - PORT=8080
+
 volumes:
   pgdata:

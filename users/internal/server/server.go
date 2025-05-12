@@ -9,11 +9,12 @@ import (
 )
 
 const (
-	PingPath       = "/ping"
-	ApiUsersPath   = "/api/users"
-	ApiRevokePath  = "/api/revoke"
-	ApiLoginPath   = "/api/login"
-	ApiRefreshPath = "/api/refresh"
+	PingPath        = "/ping"
+	ApiUsersPath    = "/api/users"
+	AuthRevokePath  = "/auth/revoke"
+	AuthLoginPath   = "/auth/login"
+	AuthRefreshPath = "/auth/refresh"
+	AuthWhoamiPath  = "/auth/whoami"
 )
 
 type ApiConfig struct {
@@ -32,9 +33,10 @@ func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
 	sm.HandleFunc("DELETE "+ApiUsersPath, apiCfg.HandleDeleteApiUsers)
 
 	// Auth
-	sm.HandleFunc("POST "+ApiLoginPath, apiCfg.HandlePostApiLogin)
-	sm.HandleFunc("POST "+ApiRefreshPath, apiCfg.HandlePostApiRefresh)
-	sm.HandleFunc("POST "+ApiRevokePath, apiCfg.HandlePostApiRevoke)
+	sm.HandleFunc("POST "+AuthLoginPath, apiCfg.HandlePostAuthLogin)
+	sm.HandleFunc("POST "+AuthRefreshPath, apiCfg.HandlePostAuthRefresh)
+	sm.HandleFunc("POST "+AuthRevokePath, apiCfg.HandlePostAuthRevoke)
+	sm.HandleFunc("GET "+AuthWhoamiPath, apiCfg.HandleGetAuthWhoami)
 
 	// Swagger
 	sm.Handle("/swagger/", httpSwagger.WrapHandler)

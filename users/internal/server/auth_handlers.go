@@ -72,8 +72,8 @@ func revokeRefreshToken(cfg *ApiConfig, r *http.Request, refreshToken string) {
 // @Failure 401 {object} ErrorResponse "Invalid password"
 // @Failure 404 {object} ErrorResponse "User not found"
 // @Failure 500 {object} ErrorResponse
-// @Router /api/login [post]
-func (cfg *ApiConfig) HandlePostApiLogin(w http.ResponseWriter, r *http.Request) {
+// @Router /auth/login [post]
+func (cfg *ApiConfig) HandlePostAuthLogin(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	request := RequestLogin{}
 	requestErr := decoder.Decode(&request)
@@ -110,8 +110,8 @@ func (cfg *ApiConfig) HandlePostApiLogin(w http.ResponseWriter, r *http.Request)
 // @Header 200 {string} Set-Cookie "HTTP-only cookie named refresh_token"
 // @Failure 401 {object} ErrorResponse "Invalid refresh token"
 // @Failure 500 {object} ErrorResponse
-// @Router /api/refresh [post]
-func (cfg *ApiConfig) HandlePostApiRefresh(w http.ResponseWriter, r *http.Request) {
+// @Router /auth/refresh [post]
+func (cfg *ApiConfig) HandlePostAuthRefresh(w http.ResponseWriter, r *http.Request) {
 	cookie, cookieErr := r.Cookie(refreshTokenName)
 	if cookieErr != nil || cookie == nil {
 		common.RespondWithError(w, http.StatusUnauthorized, "No refresh token in cookie")
@@ -142,8 +142,8 @@ func (cfg *ApiConfig) HandlePostApiRefresh(w http.ResponseWriter, r *http.Reques
 // @Success 204
 // @Failure 401 {object} ErrorResponse "No refresh token in cookie"
 // @Failure 500 {object} ErrorResponse
-// @Router /api/revoke [post]
-func (cfg *ApiConfig) HandlePostApiRevoke(w http.ResponseWriter, r *http.Request) {
+// @Router /auth/revoke [post]
+func (cfg *ApiConfig) HandlePostAuthRevoke(w http.ResponseWriter, r *http.Request) {
 	cookie, cookieErr := r.Cookie(refreshTokenName)
 	if cookieErr != nil || cookie == nil {
 		common.RespondWithError(w, http.StatusUnauthorized, "No refresh token in cookie")
@@ -152,4 +152,23 @@ func (cfg *ApiConfig) HandlePostApiRevoke(w http.ResponseWriter, r *http.Request
 
 	revokeRefreshToken(cfg, r, cookie.Value)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// @Summary Get user
+// @Description Gets user ID. Uses access token from an HTTP-only cookie
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Success 200 {object} ResponseUserID "User ID"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse
+// @Router /auth/whoami [get]
+func (cfg *ApiConfig) HandleGetAuthWhoami(w http.ResponseWriter, r *http.Request) {
+	userID, authErr := checkAuthorization(cfg, r)
+	if authErr != nil {
+		common.RespondWithError(w, http.StatusUnauthorized, authErr.Error())
+		return
+	}
+
+	common.RespondWithJSON(w, http.StatusOK, ResponseUserID{ID: userID.String()}, nil)
 }

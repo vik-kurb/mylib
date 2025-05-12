@@ -1,0 +1,75 @@
+basePath: /
+definitions:
+  server.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  server.RequestUserReading:
+    properties:
+      book_id:
+        type: string
+      status:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API for managing users' read books.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: User reading Service API
+  version: "1.0"
+paths:
+  /api/authors:
+    post:
+      consumes:
+      - application/json
+      description: Saves book to user reading in DB. Uses access token from an HTTP-only
+        cookie
+      parameters:
+      - description: Book id with status
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/server.RequestUserReading'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created successfully
+          schema:
+            type: string
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Add user reading
+      tags:
+      - User reading
+  /ping:
+    get:
+      consumes:
+      - application/json
+      description: Checks server health. Returns 200 OK if server is up.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Ping the server
+      tags:
+      - Health
+swagger: "2.0"

@@ -1,6 +1,5 @@
 package server
 
-// RequestAuthor - author info
 type RequestAuthor struct {
 	FullName  string `json:"full_name"`
 	BirthDate string `json:"birth_date,omitempty"`

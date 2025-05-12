@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	common "github.com/bakurvik/mylib-common"
 	"github.com/bakurvik/mylib/users/internal/auth"
 	"github.com/bakurvik/mylib/users/internal/server"
+	"github.com/google/uuid"
 
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
@@ -48,7 +50,7 @@ func TestLogin_Success(t *testing.T) {
 	request := server.RequestLogin{Password: password, Email: email}
 	requestJson, _ := json.Marshal(request)
 
-	response, err := http.Post(s.URL+server.ApiLoginPath, "application/json", bytes.NewBuffer(requestJson))
+	response, err := http.Post(s.URL+server.AuthLoginPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
@@ -88,7 +90,7 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	request := server.RequestUser{LoginName: login, Password: anotherPassword, Email: email}
 	requestJson, _ := json.Marshal(request)
 
-	response, err := http.Post(s.URL+server.ApiLoginPath, "application/json", bytes.NewBuffer(requestJson))
+	response, err := http.Post(s.URL+server.AuthLoginPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
@@ -108,7 +110,7 @@ func TestLogin_NoUser(t *testing.T) {
 	request := server.RequestUser{LoginName: "login", Password: password, Email: email}
 	requestJson, _ := json.Marshal(request)
 
-	response, err := http.Post(s.URL+server.ApiLoginPath, "application/json", bytes.NewBuffer(requestJson))
+	response, err := http.Post(s.URL+server.AuthLoginPath, "application/json", bytes.NewBuffer(requestJson))
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
@@ -126,7 +128,7 @@ func TestRefresh_Success(t *testing.T) {
 	s := setupTestServer(db)
 	defer s.Close()
 
-	request, requestErr := http.NewRequest("POST", s.URL+server.ApiRefreshPath, nil)
+	request, requestErr := http.NewRequest("POST", s.URL+server.AuthRefreshPath, nil)
 	assert.NoError(t, requestErr)
 	request.AddCookie(&http.Cookie{
 		Name:     cookieRefreshToken,
@@ -177,7 +179,7 @@ func TestRefresh_NoCookie(t *testing.T) {
 	s := setupTestServer(db)
 	defer s.Close()
 
-	request, requestErr := http.NewRequest("POST", s.URL+server.ApiRefreshPath, nil)
+	request, requestErr := http.NewRequest("POST", s.URL+server.AuthRefreshPath, nil)
 	assert.NoError(t, requestErr)
 
 	client := &http.Client{}
@@ -196,7 +198,7 @@ func TestRefresh_UnknownToken(t *testing.T) {
 	s := setupTestServer(db)
 	defer s.Close()
 
-	request, requestErr := http.NewRequest("POST", s.URL+server.ApiRefreshPath, nil)
+	request, requestErr := http.NewRequest("POST", s.URL+server.AuthRefreshPath, nil)
 	assert.NoError(t, requestErr)
 	request.AddCookie(&http.Cookie{
 		Name:     cookieRefreshToken,
@@ -227,7 +229,7 @@ func TestRevoke_Success(t *testing.T) {
 	s := setupTestServer(db)
 	defer s.Close()
 
-	request, requestErr := http.NewRequest("POST", s.URL+server.ApiRevokePath, nil)
+	request, requestErr := http.NewRequest("POST", s.URL+server.AuthRevokePath, nil)
 	assert.NoError(t, requestErr)
 	request.AddCookie(&http.Cookie{
 		Name:     cookieRefreshToken,
@@ -261,7 +263,7 @@ func TestRevoke_NoCookie(t *testing.T) {
 	s := setupTestServer(db)
 	defer s.Close()
 
-	request, requestErr := http.NewRequest("POST", s.URL+server.ApiRevokePath, nil)
+	request, requestErr := http.NewRequest("POST", s.URL+server.AuthRevokePath, nil)
 	assert.NoError(t, requestErr)
 
 	client := &http.Client{}
@@ -283,7 +285,7 @@ func TestRevoke_UnknownToken(t *testing.T) {
 	s := setupTestServer(db)
 	defer s.Close()
 
-	request, requestErr := http.NewRequest("POST", s.URL+server.ApiRevokePath, nil)
+	request, requestErr := http.NewRequest("POST", s.URL+server.AuthRevokePath, nil)
 	assert.NoError(t, requestErr)
 	request.AddCookie(&http.Cookie{
 		Name:     cookieRefreshToken,
@@ -314,4 +316,51 @@ func TestPing_Success(t *testing.T) {
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
+}
+
+func TestWhoami_Authorized(t *testing.T) {
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
+	assert.NoError(t, err)
+	defer common.CloseDB(db)
+	cleanupDB(db)
+	user := User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"}
+	userID := addDBUser(db, user)
+
+	s := setupTestServer(db)
+	defer s.Close()
+
+	request, requestErr := http.NewRequest("GET", s.URL+server.AuthWhoamiPath, nil)
+	assert.NoError(t, requestErr)
+	uuid, _ := uuid.Parse(userID)
+	accessToken, _ := auth.MakeJWT(uuid, authSecretKey, time.Hour)
+	request.Header.Add("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer common.CloseResponseBody(response)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	body, _ := io.ReadAll(response.Body)
+	responseData := server.ResponseUserID{}
+	json.Unmarshal(body, &responseData)
+	assert.Equal(t, responseData.ID, userID)
+}
+
+func TestWhoami_Unauthorized(t *testing.T) {
+	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
+	assert.NoError(t, err)
+	defer common.CloseDB(db)
+
+	s := setupTestServer(db)
+	defer s.Close()
+
+	request, requestErr := http.NewRequest("GET", s.URL+server.AuthWhoamiPath, nil)
+	assert.NoError(t, requestErr)
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	assert.NoError(t, err)
+	defer common.CloseResponseBody(response)
+	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 }

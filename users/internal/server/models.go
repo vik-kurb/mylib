@@ -23,6 +23,10 @@ type ResponseUser struct {
 	BirthDate string `json:"birth_date"`
 }
 
+type ResponseUserID struct {
+	ID string `json:"user_id"`
+}
+
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
