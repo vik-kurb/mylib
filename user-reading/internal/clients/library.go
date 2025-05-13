@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	common "github.com/bakurvik/mylib-common"
 	"github.com/google/uuid"
 )
 
@@ -12,6 +13,6 @@ func CheckBook(bookID uuid.UUID, host string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer response.Body.Close()
+	defer common.CloseResponseBody(response)
 	return response.StatusCode, nil
 }

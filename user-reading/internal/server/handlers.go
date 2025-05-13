@@ -17,7 +17,7 @@ func mapUserReadingStatus(status string) (database.ReadingStatus, error) {
 	if dbStatus == database.ReadingStatusFinished || dbStatus == database.ReadingStatusReading || dbStatus == database.ReadingStatusWantToRead {
 		return dbStatus, nil
 	}
-	return "", errors.New("Unknown reading status")
+	return "", errors.New("unknown reading status")
 }
 
 // @Summary Ping the server
@@ -100,7 +100,7 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 
 	switch bookResp.statusCode {
 	case http.StatusNotFound:
-		common.RespondWithError(w, http.StatusNotFound, "Book not found")
+		common.RespondWithError(w, http.StatusBadRequest, "Book not found")
 		return
 	case http.StatusBadRequest:
 		common.RespondWithError(w, http.StatusBadRequest, "Invalid book id")

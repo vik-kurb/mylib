@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 
+	common "github.com/bakurvik/mylib-common"
 	"github.com/google/uuid"
 )
 
@@ -21,7 +22,7 @@ func GetUser(h http.Header, host string) (uuid.UUID, int, error) {
 	if err != nil {
 		return uuid.Nil, 0, err
 	}
-	defer response.Body.Close()
+	defer common.CloseResponseBody(response)
 	if response.StatusCode == http.StatusUnauthorized {
 		return uuid.Nil, http.StatusUnauthorized, nil
 	}
