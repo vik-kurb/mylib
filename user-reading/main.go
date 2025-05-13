@@ -4,7 +4,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"user-reading/internal/server"
+
+	"github.com/bakurvik/mylib/user-reading/internal/server"
 
 	common "github.com/bakurvik/mylib-common"
 
@@ -30,7 +31,7 @@ func main() {
 	}
 
 	sm := http.NewServeMux()
-	apiCfg := server.ApiConfig{DB: db, UsersServiceHost: os.Getenv("USERS_SERVICE_HOST"), UsersServicePort: os.Getenv("USERS_SERVICE_PORT")}
+	apiCfg := server.ApiConfig{DB: db, UsersServiceHost: os.Getenv("USERS_SERVICE_HOST"), LibraryServiceHost: os.Getenv("LIBRARY_SERVICE_HOST")}
 	server.Handle(sm, &apiCfg)
 
 	s := http.Server{

@@ -13,9 +13,9 @@ const (
 )
 
 type ApiConfig struct {
-	DB               *sql.DB
-	UsersServiceHost string
-	UsersServicePort int
+	DB                 *sql.DB
+	UsersServiceHost   string
+	LibraryServiceHost string
 }
 
 func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {

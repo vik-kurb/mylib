@@ -8,6 +8,7 @@ import (
 	"user-reading/internal/server"
 
 	common "github.com/bakurvik/mylib-common"
+	"github.com/bakurvik/mylib/user-reading/internal/database"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -3,9 +3,10 @@ package server
 import (
 	"encoding/json"
 	"net/http"
-	"user-reading/internal/clients"
 
+	"github.com/bakurvik/mylib/user-reading/internal/clients"
 	"github.com/bakurvik/mylib/user-reading/internal/database"
+	"github.com/google/uuid"
 
 	common "github.com/bakurvik/mylib-common"
 )
@@ -33,12 +34,16 @@ func (cfg *ApiConfig) HandlePing(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} ErrorResponse
 // @Router /api/authors [post]
 func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *http.Request) {
-	//
 	decoder := json.NewDecoder(r.Body)
 	request := RequestUserReading{}
 	err := decoder.Decode(&request)
 	if err != nil {
 		common.RespondWithError(w, http.StatusBadRequest, "Invalid request")
+		return
+	}
+	bookUUID, err := uuid.Parse(request.BookId)
+	if err != nil {
+		common.RespondWithError(w, http.StatusBadRequest, "Invalid book id")
 		return
 	}
 
@@ -47,13 +52,51 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 		return
 	}
 
-	userID, statusCode, err := clients.GetUser(r.Header, cfg.UsersServiceHost, cfg.UsersServicePort)
-	if statusCode == http.StatusUnauthorized {
+	type userResponse struct {
+		userID     uuid.UUID
+		statusCode int
+		err        error
+	}
+	userChan := make(chan userResponse)
+	go func() {
+		userID, statusCode, err := clients.GetUser(r.Header, cfg.UsersServiceHost)
+		userChan <- userResponse{userID: userID, statusCode: statusCode, err: err}
+	}()
+
+	type bookResponse struct {
+		statusCode int
+		err        error
+	}
+	bookChan := make(chan bookResponse)
+	go func() {
+		statusCode, err := clients.CheckBook(bookUUID, cfg.LibraryServiceHost)
+		bookChan <- bookResponse{statusCode: statusCode, err: err}
+	}()
+
+	userResp := <-userChan
+	bookResp := <-bookChan
+	if userResp.statusCode == http.StatusUnauthorized {
 		common.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
-	if err != nil {
+	if userResp.err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, "Failed to check authorization")
+		return
+	}
+
+	switch bookResp.statusCode {
+	case http.StatusNotFound:
+		common.RespondWithError(w, http.StatusNotFound, "Book not found")
+		return
+	case http.StatusBadRequest:
+		common.RespondWithError(w, http.StatusBadRequest, "Invalid book id")
+		return
+	case http.StatusInternalServerError:
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to check book")
+		return
+	}
+	if userResp.err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to check book")
 		return
 	}
 
@@ -61,9 +104,9 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 	dbErr := queries.CreateUserReading(
 		r.Context(),
 		database.CreateUserReadingParams{
-			userID: userID,
-			bookID: request.BookId,
-			status: request.Status})
+			UserID: userResp.userID,
+			BookID: bookUUID,
+			Status: database.ReadingStatus(request.Status)})
 	if dbErr != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return
