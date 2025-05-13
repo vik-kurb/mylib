@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/bakurvik/mylib/user-reading/internal/clients"
@@ -10,6 +11,14 @@ import (
 
 	common "github.com/bakurvik/mylib-common"
 )
+
+func mapUserReadingStatus(status string) (database.ReadingStatus, error) {
+	dbStatus := database.ReadingStatus(status)
+	if dbStatus == database.ReadingStatusFinished || dbStatus == database.ReadingStatusReading || dbStatus == database.ReadingStatusWantToRead {
+		return dbStatus, nil
+	}
+	return "", errors.New("Unknown reading status")
+}
 
 // @Summary Ping the server
 // @Description  Checks server health. Returns 200 OK if server is up.
@@ -46,6 +55,11 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 		common.RespondWithError(w, http.StatusBadRequest, "Invalid book id")
 		return
 	}
+	readingStatus, err := mapUserReadingStatus(request.Status)
+	if err != nil {
+		common.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	if cfg.DB == nil {
 		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
@@ -80,7 +94,7 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 		return
 	}
 	if userResp.err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, "Failed to check authorization")
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to check authorization: "+userResp.err.Error())
 		return
 	}
 
@@ -96,7 +110,7 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 		return
 	}
 	if userResp.err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, "Failed to check book")
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to check book: "+userResp.err.Error())
 		return
 	}
 
@@ -106,7 +120,7 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 		database.CreateUserReadingParams{
 			UserID: userResp.userID,
 			BookID: bookUUID,
-			Status: database.ReadingStatus(request.Status)})
+			Status: readingStatus})
 	if dbErr != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return

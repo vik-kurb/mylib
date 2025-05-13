@@ -11,7 +11,7 @@ import (
 
 func GetUser(h http.Header, host string) (uuid.UUID, int, error) {
 	client := &http.Client{}
-	request, err := http.NewRequest("GET", fmt.Sprintf("http://%v/auth/whoami", host), nil)
+	request, err := http.NewRequest("GET", fmt.Sprintf("%v%v", host, UsersAuthWhoamiPath), nil)
 	if err != nil {
 		return uuid.Nil, 0, err
 	}
@@ -29,7 +29,7 @@ func GetUser(h http.Header, host string) (uuid.UUID, int, error) {
 	if err != nil {
 		return uuid.Nil, response.StatusCode, err
 	}
-	responseData := responseUserID{}
+	responseData := ResponseUserID{}
 	err = json.Unmarshal(responseBody, &responseData)
 	if err != nil {
 		return uuid.Nil, response.StatusCode, err

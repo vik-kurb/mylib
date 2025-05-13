@@ -8,7 +8,7 @@ import (
 )
 
 func CheckBook(bookID uuid.UUID, host string) (int, error) {
-	response, err := http.Get(fmt.Sprintf("http://%v/api/books/%v", host, bookID))
+	response, err := http.Get(fmt.Sprintf("%v%v/%v", host, LibraryApiBooksPath, bookID))
 	if err != nil {
 		return 0, err
 	}
