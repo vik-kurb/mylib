@@ -324,3 +324,81 @@ func TestUpdateUserReading(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteUserReading(t *testing.T) {
+	userID := uuid.New()
+	bookID := uuid.New()
+
+	type testCase struct {
+		name                 string
+		bookID               string
+		usersData            usersServiceData
+		dbUserReadings       []userReading
+		expectedStatusCode   int
+		expectedUserReadings []userReading
+	}
+
+	tests := []testCase{
+		{
+			name:                 "success",
+			bookID:               bookID.String(),
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			dbUserReadings:       []userReading{{bookID: bookID, status: "want_to_read"}},
+			expectedStatusCode:   http.StatusNoContent,
+			expectedUserReadings: []userReading{},
+		},
+		{
+			name:                 "invalid_book_id",
+			bookID:               "invalid_book_id",
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			dbUserReadings:       []userReading{{bookID: bookID, status: "want_to_read"}},
+			expectedStatusCode:   http.StatusBadRequest,
+			expectedUserReadings: []userReading{{bookID: bookID, status: "want_to_read"}},
+		},
+		{
+			name:                 "unauthorized",
+			bookID:               bookID.String(),
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusUnauthorized},
+			dbUserReadings:       []userReading{{bookID: bookID, status: "want_to_read"}},
+			expectedStatusCode:   http.StatusUnauthorized,
+			expectedUserReadings: []userReading{{bookID: bookID, status: "want_to_read"}},
+		},
+		{
+			name:                 "no_user_reading",
+			bookID:               bookID.String(),
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			dbUserReadings:       []userReading{},
+			expectedStatusCode:   http.StatusNoContent,
+			expectedUserReadings: []userReading{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
+			assert.NoError(t, err)
+			defer common.CloseDB(db)
+			cleanupDB(db)
+
+			addDBUserReading(db, userID.String(), tc.dbUserReadings)
+
+			s, usersServer, libraryServer := setupTestServers(t, db, tc.usersData, libraryServiceData{})
+			defer s.Close()
+			defer usersServer.Close()
+			defer libraryServer.Close()
+
+			client := &http.Client{}
+			request, err := http.NewRequest("DELETE", s.URL+server.ApiUserReadingPath+"/"+tc.bookID, nil)
+			assert.NoError(t, err)
+			request.Header.Add(tc.usersData.authHeader, tc.usersData.authToken)
+
+			response, err := client.Do(request)
+			assert.NoError(t, err)
+			defer common.CloseResponseBody(response)
+			assert.Equal(t, tc.expectedStatusCode, response.StatusCode)
+
+			userReadings := getDBUserReading(t, db, userID)
+			assert.ElementsMatch(t, userReadings, tc.expectedUserReadings)
+		})
+	}
+}

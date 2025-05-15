@@ -57,6 +57,40 @@ paths:
       summary: Update user reading
       tags:
       - User reading
+  /api/authors/{bookID}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes user reading from DB. Uses access token from an HTTP-only
+        cookie
+      parameters:
+      - description: Book ID
+        in: path
+        name: bookID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Deleted successfully
+          schema:
+            type: string
+        "400":
+          description: Invalid bookID
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Delete user reading
+      tags:
+      - User reading
   /ping:
     get:
       consumes:

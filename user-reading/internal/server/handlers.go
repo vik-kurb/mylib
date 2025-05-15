@@ -71,14 +71,14 @@ func checkUserAndBook(r *http.Request, cfg *ApiConfig, bookUUID uuid.UUID) (uuid
 
 	switch bookResp.statusCode {
 	case http.StatusNotFound:
-		return userResp.userID, http.StatusBadRequest, errors.New("book not found")
+		return uuid.Nil, http.StatusBadRequest, errors.New("book not found")
 	case http.StatusBadRequest:
-		return userResp.userID, http.StatusBadRequest, errors.New("invalid book id")
+		return uuid.Nil, http.StatusBadRequest, errors.New("invalid book id")
 	case http.StatusInternalServerError:
-		return userResp.userID, http.StatusInternalServerError, errors.New("failed to check book")
+		return uuid.Nil, http.StatusInternalServerError, errors.New("failed to check book")
 	}
-	if userResp.err != nil {
-		return userResp.userID, http.StatusInternalServerError, errors.New("failed to check book")
+	if bookResp.err != nil {
+		return uuid.Nil, http.StatusInternalServerError, errors.New("failed to check book")
 	}
 	return userResp.userID, http.StatusOK, nil
 }
@@ -181,5 +181,48 @@ func (cfg *ApiConfig) HandlePutApiUserReadingPath(w http.ResponseWriter, r *http
 		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return
 	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// @Summary Delete user reading
+// @Description Deletes user reading from DB. Uses access token from an HTTP-only cookie
+// @Tags User reading
+// @Accept json
+// @Produce json
+// @Param bookID path string true "Book ID"
+// @Success 201 {string} string "Deleted successfully"
+// @Failure 400 {object} ErrorResponse "Invalid bookID"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/authors/{bookID} [delete]
+func (cfg *ApiConfig) HandleDeleteApiUserReadingPath(w http.ResponseWriter, r *http.Request) {
+	bookID, err := uuid.Parse(r.PathValue("bookID"))
+	if err != nil {
+		common.RespondWithError(w, http.StatusBadRequest, "Invalid bookID")
+		return
+	}
+
+	if cfg.DB == nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
+		return
+	}
+
+	userID, usersStatusCode, err := clients.GetUser(r.Header, cfg.UsersServiceHost)
+	if usersStatusCode == http.StatusUnauthorized {
+		common.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to check authorization")
+		return
+	}
+
+	queries := database.New(cfg.DB)
+	dbErr := queries.DeleteUserReading(r.Context(), database.DeleteUserReadingParams{UserID: userID, BookID: bookID})
+	if dbErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
+		return
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
