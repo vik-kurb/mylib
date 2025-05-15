@@ -26,7 +26,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Saves book to user reading in DB. Uses access token from an HTTP-only
+      description: Updates user reading in DB. Uses access token from an HTTP-only
         cookie
       parameters:
       - description: Book id with status
@@ -39,7 +39,7 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created successfully
+          description: Updated successfully
           schema:
             type: string
         "400":
@@ -54,7 +54,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/server.ErrorResponse'
-      summary: Add user reading
+      summary: Update user reading
       tags:
       - User reading
   /ping:

@@ -20,52 +20,25 @@ func mapUserReadingStatus(status string) (database.ReadingStatus, error) {
 	return "", errors.New("unknown reading status")
 }
 
-// @Summary Ping the server
-// @Description  Checks server health. Returns 200 OK if server is up.
-// @Tags Health
-// @Accept json
-// @Produce json
-// @Success 200 {string} string
-// @Router /ping [get]
-func (cfg *ApiConfig) HandlePing(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-}
-
-// @Summary Add user reading
-// @Description Saves book to user reading in DB. Uses access token from an HTTP-only cookie
-// @Tags User reading
-// @Accept json
-// @Produce json
-// @Param request body RequestUserReading true "Book id with status"
-// @Success 201 {string} string "Created successfully"
-// @Failure 400 {object} ErrorResponse "Invalid request body"
-// @Failure 401 {object} ErrorResponse "Unauthorized"
-// @Failure 500 {object} ErrorResponse
-// @Router /api/authors [post]
-func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *http.Request) {
+func parseUserReading(r *http.Request) (uuid.UUID, database.ReadingStatus, error) {
 	decoder := json.NewDecoder(r.Body)
 	request := RequestUserReading{}
 	err := decoder.Decode(&request)
 	if err != nil {
-		common.RespondWithError(w, http.StatusBadRequest, "Invalid request")
-		return
+		return uuid.Nil, "", err
 	}
 	bookUUID, err := uuid.Parse(request.BookId)
 	if err != nil {
-		common.RespondWithError(w, http.StatusBadRequest, "Invalid book id")
-		return
+		return uuid.Nil, "", err
 	}
 	readingStatus, err := mapUserReadingStatus(request.Status)
 	if err != nil {
-		common.RespondWithError(w, http.StatusBadRequest, err.Error())
-		return
+		return uuid.Nil, "", err
 	}
+	return bookUUID, readingStatus, nil
+}
 
-	if cfg.DB == nil {
-		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
-		return
-	}
-
+func checkUserAndBook(r *http.Request, cfg *ApiConfig, bookUUID uuid.UUID) (uuid.UUID, int, error) {
 	type userResponse struct {
 		userID     uuid.UUID
 		statusCode int
@@ -90,27 +63,63 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 	userResp := <-userChan
 	bookResp := <-bookChan
 	if userResp.statusCode == http.StatusUnauthorized {
-		common.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
-		return
+		return uuid.Nil, http.StatusUnauthorized, errors.New("Unauthorized")
 	}
 	if userResp.err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, "Failed to check authorization: "+userResp.err.Error())
-		return
+		return uuid.Nil, http.StatusInternalServerError, errors.New("failed to check authorization")
 	}
 
 	switch bookResp.statusCode {
 	case http.StatusNotFound:
-		common.RespondWithError(w, http.StatusBadRequest, "Book not found")
-		return
+		return userResp.userID, http.StatusBadRequest, errors.New("book not found")
 	case http.StatusBadRequest:
-		common.RespondWithError(w, http.StatusBadRequest, "Invalid book id")
-		return
+		return userResp.userID, http.StatusBadRequest, errors.New("invalid book id")
 	case http.StatusInternalServerError:
-		common.RespondWithError(w, http.StatusInternalServerError, "Failed to check book")
-		return
+		return userResp.userID, http.StatusInternalServerError, errors.New("failed to check book")
 	}
 	if userResp.err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, "Failed to check book: "+userResp.err.Error())
+		return userResp.userID, http.StatusInternalServerError, errors.New("failed to check book")
+	}
+	return userResp.userID, http.StatusOK, nil
+}
+
+// @Summary Ping the server
+// @Description  Checks server health. Returns 200 OK if server is up.
+// @Tags Health
+// @Accept json
+// @Produce json
+// @Success 200 {string} string
+// @Router /ping [get]
+func (cfg *ApiConfig) HandlePing(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
+
+// @Summary Add user reading
+// @Description Saves book to user reading in DB. Uses access token from an HTTP-only cookie
+// @Tags User reading
+// @Accept json
+// @Produce json
+// @Param request body RequestUserReading true "Book id with status"
+// @Success 201 {string} string "Created successfully"
+// @Failure 400 {object} ErrorResponse "Invalid request body"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/authors [post]
+func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *http.Request) {
+	bookUUID, readingStatus, err := parseUserReading(r)
+	if err != nil {
+		common.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if cfg.DB == nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
+		return
+	}
+
+	userUUID, statusCode, err := checkUserAndBook(r, cfg, bookUUID)
+	if err != nil {
+		common.RespondWithError(w, statusCode, err.Error())
 		return
 	}
 
@@ -118,7 +127,7 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 	dbErr := queries.CreateUserReading(
 		r.Context(),
 		database.CreateUserReadingParams{
-			UserID: userResp.userID,
+			UserID: userUUID,
 			BookID: bookUUID,
 			Status: readingStatus})
 	if dbErr != nil {
@@ -126,4 +135,51 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
+}
+
+// @Summary Update user reading
+// @Description Updates user reading in DB. Uses access token from an HTTP-only cookie
+// @Tags User reading
+// @Accept json
+// @Produce json
+// @Param request body RequestUserReading true "Book id with status"
+// @Success 201 {string} string "Updated successfully"
+// @Failure 400 {object} ErrorResponse "Invalid request body"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/authors [post]
+func (cfg *ApiConfig) HandlePutApiUserReadingPath(w http.ResponseWriter, r *http.Request) {
+	bookUUID, readingStatus, err := parseUserReading(r)
+	if err != nil {
+		common.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if cfg.DB == nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
+		return
+	}
+
+	userUUID, statusCode, err := checkUserAndBook(r, cfg, bookUUID)
+	if err != nil {
+		common.RespondWithError(w, statusCode, err.Error())
+		return
+	}
+
+	queries := database.New(cfg.DB)
+	count, dbErr := queries.UpdateUserReading(
+		r.Context(),
+		database.UpdateUserReadingParams{
+			UserID: userUUID,
+			BookID: bookUUID,
+			Status: readingStatus})
+	if count == 0 {
+		common.RespondWithError(w, http.StatusBadRequest, "Unknown user reading")
+		return
+	}
+	if dbErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

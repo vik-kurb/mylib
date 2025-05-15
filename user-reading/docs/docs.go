@@ -21,7 +21,7 @@ const docTemplate = `{
     "paths": {
         "/api/authors": {
             "post": {
-                "description": "Saves book to user reading in DB. Uses access token from an HTTP-only cookie",
+                "description": "Updates user reading in DB. Uses access token from an HTTP-only cookie",
                 "consumes": [
                     "application/json"
                 ],
@@ -31,7 +31,7 @@ const docTemplate = `{
                 "tags": [
                     "User reading"
                 ],
-                "summary": "Add user reading",
+                "summary": "Update user reading",
                 "parameters": [
                     {
                         "description": "Book id with status",
@@ -45,7 +45,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created successfully",
+                        "description": "Updated successfully",
                         "schema": {
                             "type": "string"
                         }

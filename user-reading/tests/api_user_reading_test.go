@@ -22,6 +22,7 @@ import (
 const (
 	deleteUserReading = "DELETE FROM user_reading"
 	selectUserReading = "SELECT book_id, status FROM user_reading WHERE user_id = $1"
+	insertUserReading = "INSERT INTO user_reading(user_id, book_id, status) VALUES($1, $2, $3)"
 )
 
 type userReading struct {
@@ -29,11 +30,25 @@ type userReading struct {
 	status string
 }
 
-func mockUsersServer(t *testing.T, userID, authHeader, authToken string, responseStatus int) *httptest.Server {
+type usersServiceData struct {
+	userID     uuid.UUID
+	authHeader string
+	authToken  string
+	statusCode int
+}
+
+type libraryServiceData struct {
+	bookID     string
+	statusCode int
+}
+
+func mockUsersServer(t *testing.T, data usersServiceData) *httptest.Server {
 	usersServiceMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == clients.UsersAuthWhoamiPath {
-			assert.Equal(t, r.Header.Get(authHeader), authToken)
-			common.RespondWithJSON(w, responseStatus, clients.ResponseUserID{ID: userID}, nil)
+			if data.authHeader != "" {
+				assert.Equal(t, r.Header.Get(data.authHeader), data.authToken)
+			}
+			common.RespondWithJSON(w, data.statusCode, clients.ResponseUserID{ID: data.userID.String()}, nil)
 			return
 		}
 		http.NotFound(w, r)
@@ -41,20 +56,21 @@ func mockUsersServer(t *testing.T, userID, authHeader, authToken string, respons
 	return usersServiceMock
 }
 
-func mockLibraryServer(t *testing.T, bookID string, responseStatus int) *httptest.Server {
+func mockLibraryServer(t *testing.T, data libraryServiceData) *httptest.Server {
 	libraryServiceMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == fmt.Sprintf("%v/%v", clients.LibraryApiBooksPath, bookID) {
-			common.RespondWithJSON(w, responseStatus, struct{}{}, nil)
+		if r.URL.Path == fmt.Sprintf("%v/%v", clients.LibraryApiBooksPath, data.bookID) {
+			common.RespondWithJSON(w, data.statusCode, struct{}{}, nil)
+			return
 		}
 		http.NotFound(w, r)
 	}))
 	return libraryServiceMock
 }
 
-func setupTestServers(t *testing.T, db *sql.DB, userID, authHeader, authToken, bookID string, usersResponseStatus, libraryResponseStatus int) (*httptest.Server, *httptest.Server, *httptest.Server) {
-	usersServer := mockUsersServer(t, userID, authHeader, authToken, usersResponseStatus)
+func setupTestServers(t *testing.T, db *sql.DB, usersData usersServiceData, libraryData libraryServiceData) (*httptest.Server, *httptest.Server, *httptest.Server) {
+	usersServer := mockUsersServer(t, usersData)
 	usersUrl, _ := url.Parse(usersServer.URL)
-	libraryServer := mockLibraryServer(t, bookID, libraryResponseStatus)
+	libraryServer := mockLibraryServer(t, libraryData)
 	libraryUrl, _ := url.Parse(libraryServer.URL)
 
 	apiCfg := server.ApiConfig{DB: db, UsersServiceHost: usersUrl.String(), LibraryServiceHost: libraryUrl.String()}
@@ -70,7 +86,7 @@ func cleanupDB(db *sql.DB) {
 	}
 }
 
-func getDbUserReading(t *testing.T, db *sql.DB, userID uuid.UUID) []userReading {
+func getDBUserReading(t *testing.T, db *sql.DB, userID uuid.UUID) []userReading {
 	rows, err := db.Query(selectUserReading, userID)
 	if err != nil {
 		t.Fatalf("Error while selecting user reading: %v", err)
@@ -93,12 +109,23 @@ func getDbUserReading(t *testing.T, db *sql.DB, userID uuid.UUID) []userReading 
 	return user_readings
 }
 
+func addDBUserReading(db *sql.DB, userID string, userReadings []userReading) {
+	for _, userReading := range userReadings {
+		_, err := db.Exec(
+			insertUserReading,
+			userID, userReading.bookID, userReading.status)
+		if err != nil {
+			log.Print("Failed to add user reading to db: ", err)
+		}
+	}
+}
+
 func TestPing_Success(t *testing.T) {
 	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 
-	s, usersServer, libraryServer := setupTestServers(t, db, "", "", "", "", http.StatusOK, http.StatusOK)
+	s, usersServer, libraryServer := setupTestServers(t, db, usersServiceData{}, libraryServiceData{})
 	defer s.Close()
 	defer usersServer.Close()
 	defer libraryServer.Close()
@@ -109,155 +136,191 @@ func TestPing_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 }
 
-func TestCreateUserReading_Success(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-
+func TestCreateUserReading(t *testing.T) {
 	userID := uuid.New()
 	bookID := uuid.New()
-	status := "finished"
-	authHeader := "Authorization"
-	authToken := "Bearer access_token"
 
-	s, usersServer, libraryServer := setupTestServers(t, db, userID.String(), authHeader, authToken, bookID.String(), http.StatusOK, http.StatusOK)
-	defer s.Close()
-	defer usersServer.Close()
-	defer libraryServer.Close()
+	type testCase struct {
+		name                 string
+		status               string
+		usersData            usersServiceData
+		libraryData          libraryServiceData
+		expectedStatusCode   int
+		expectedUserReadings []userReading
+	}
 
-	requestUserReading := server.RequestUserReading{BookId: bookID.String(), Status: status}
-	body, _ := json.Marshal(requestUserReading)
-	client := &http.Client{}
-	request, err := http.NewRequest("POST", s.URL+server.ApiUserReadingPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
-	request.Header.Add(authHeader, authToken)
+	tests := []testCase{
+		{
+			name:                 "success",
+			status:               "finished",
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
+			expectedStatusCode:   http.StatusCreated,
+			expectedUserReadings: []userReading{{bookID: bookID, status: "finished"}},
+		},
+		{
+			name:                 "invalid_book_id",
+			status:               "finished",
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:          libraryServiceData{bookID: "invalid_book_id", statusCode: http.StatusBadRequest},
+			expectedStatusCode:   http.StatusBadRequest,
+			expectedUserReadings: []userReading{},
+		},
+		{
+			name:                 "invalid_status",
+			status:               "invalid_status",
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
+			expectedStatusCode:   http.StatusBadRequest,
+			expectedUserReadings: []userReading{},
+		},
+		{
+			name:                 "unauthorized",
+			status:               "finished",
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusUnauthorized},
+			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
+			expectedStatusCode:   http.StatusUnauthorized,
+			expectedUserReadings: []userReading{},
+		},
+		{
+			name:                 "book_not_found",
+			status:               "finished",
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusNotFound},
+			expectedStatusCode:   http.StatusBadRequest,
+			expectedUserReadings: []userReading{},
+		},
+	}
 
-	response, err := client.Do(request)
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusCreated, response.StatusCode)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
+			assert.NoError(t, err)
+			defer common.CloseDB(db)
+			cleanupDB(db)
 
-	userReadings := getDbUserReading(t, db, userID)
+			s, usersServer, libraryServer := setupTestServers(t, db, tc.usersData, tc.libraryData)
+			defer s.Close()
+			defer usersServer.Close()
+			defer libraryServer.Close()
 
-	assert.Equal(t, len(userReadings), 1)
-	assert.Equal(t, userReadings[0].bookID, bookID)
-	assert.Equal(t, userReadings[0].status, status)
+			requestUserReading := server.RequestUserReading{BookId: tc.libraryData.bookID, Status: tc.status}
+			body, _ := json.Marshal(requestUserReading)
+			client := &http.Client{}
+			request, err := http.NewRequest("POST", s.URL+server.ApiUserReadingPath, bytes.NewBuffer(body))
+			assert.NoError(t, err)
+			request.Header.Add(tc.usersData.authHeader, tc.usersData.authToken)
+
+			response, err := client.Do(request)
+			assert.NoError(t, err)
+			defer common.CloseResponseBody(response)
+			assert.Equal(t, tc.expectedStatusCode, response.StatusCode)
+
+			userReadings := getDBUserReading(t, db, userID)
+			assert.ElementsMatch(t, userReadings, tc.expectedUserReadings)
+		})
+	}
 }
 
-func TestCreateUserReading_InvalidBookId(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-
-	userID := uuid.New()
-	bookID := "invalid_book_id"
-	status := "finished"
-	authHeader := "Authorization"
-	authToken := "Bearer access_token"
-
-	s, usersServer, libraryServer := setupTestServers(t, db, userID.String(), authHeader, authToken, bookID, http.StatusOK, http.StatusOK)
-	defer s.Close()
-	defer usersServer.Close()
-	defer libraryServer.Close()
-
-	requestUserReading := server.RequestUserReading{BookId: bookID, Status: status}
-	body, _ := json.Marshal(requestUserReading)
-	client := &http.Client{}
-	request, err := http.NewRequest("POST", s.URL+server.ApiUserReadingPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
-	request.Header.Add(authHeader, authToken)
-
-	response, err := client.Do(request)
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
-}
-
-func TestCreateUserReading_InvalidStatus(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-
-	userID := uuid.New()
-	bookID := uuid.New()
-	status := "invalid_status"
-	authHeader := "Authorization"
-	authToken := "Bearer access_token"
-
-	s, usersServer, libraryServer := setupTestServers(t, db, userID.String(), authHeader, authToken, bookID.String(), http.StatusOK, http.StatusOK)
-	defer s.Close()
-	defer usersServer.Close()
-	defer libraryServer.Close()
-
-	requestUserReading := server.RequestUserReading{BookId: bookID.String(), Status: status}
-	body, _ := json.Marshal(requestUserReading)
-	client := &http.Client{}
-	request, err := http.NewRequest("POST", s.URL+server.ApiUserReadingPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
-	request.Header.Add(authHeader, authToken)
-
-	response, err := client.Do(request)
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
-}
-
-func TestCreateUserReading_Unauthorized(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-
+func TestUpdateUserReading(t *testing.T) {
 	userID := uuid.New()
 	bookID := uuid.New()
-	status := "finished"
 
-	s, usersServer, libraryServer := setupTestServers(t, db, userID.String(), "", "", bookID.String(), http.StatusUnauthorized, http.StatusOK)
-	defer s.Close()
-	defer usersServer.Close()
-	defer libraryServer.Close()
+	type testCase struct {
+		name                 string
+		status               string
+		usersData            usersServiceData
+		libraryData          libraryServiceData
+		dbUserReadings       []userReading
+		expectedStatusCode   int
+		expectedUserReadings []userReading
+	}
 
-	requestUserReading := server.RequestUserReading{BookId: bookID.String(), Status: status}
-	body, _ := json.Marshal(requestUserReading)
-	client := &http.Client{}
-	request, err := http.NewRequest("POST", s.URL+server.ApiUserReadingPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	tests := []testCase{
+		{
+			name:                 "success",
+			status:               "finished",
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
+			dbUserReadings:       []userReading{{bookID: bookID, status: "want_to_read"}},
+			expectedStatusCode:   http.StatusNoContent,
+			expectedUserReadings: []userReading{{bookID: bookID, status: "finished"}},
+		},
+		{
+			name:                 "invalid_book_id",
+			status:               "finished",
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:          libraryServiceData{bookID: "invalid_book_id", statusCode: http.StatusBadRequest},
+			dbUserReadings:       []userReading{{bookID: bookID, status: "want_to_read"}},
+			expectedStatusCode:   http.StatusBadRequest,
+			expectedUserReadings: []userReading{{bookID: bookID, status: "want_to_read"}},
+		},
+		{
+			name:                 "invalid_status",
+			status:               "invalid_status",
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
+			dbUserReadings:       []userReading{{bookID: bookID, status: "want_to_read"}},
+			expectedStatusCode:   http.StatusBadRequest,
+			expectedUserReadings: []userReading{{bookID: bookID, status: "want_to_read"}},
+		},
+		{
+			name:                 "unauthorized",
+			status:               "finished",
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusUnauthorized},
+			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
+			dbUserReadings:       []userReading{{bookID: bookID, status: "want_to_read"}},
+			expectedStatusCode:   http.StatusUnauthorized,
+			expectedUserReadings: []userReading{{bookID: bookID, status: "want_to_read"}},
+		},
+		{
+			name:                 "book_not_found",
+			status:               "finished",
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusNotFound},
+			dbUserReadings:       []userReading{{bookID: bookID, status: "want_to_read"}},
+			expectedStatusCode:   http.StatusBadRequest,
+			expectedUserReadings: []userReading{{bookID: bookID, status: "want_to_read"}},
+		},
+		{
+			name:                 "no_user_reading",
+			status:               "finished",
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
+			dbUserReadings:       []userReading{},
+			expectedStatusCode:   http.StatusBadRequest,
+			expectedUserReadings: []userReading{},
+		},
+	}
 
-	response, err := client.Do(request)
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
-}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
+			assert.NoError(t, err)
+			defer common.CloseDB(db)
+			cleanupDB(db)
 
-func TestCreateUserReading_BookNotFound(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
+			addDBUserReading(db, userID.String(), tc.dbUserReadings)
 
-	userID := uuid.New()
-	bookID := uuid.New()
-	status := "finished"
-	authHeader := "Authorization"
-	authToken := "Bearer access_token"
+			s, usersServer, libraryServer := setupTestServers(t, db, tc.usersData, tc.libraryData)
+			defer s.Close()
+			defer usersServer.Close()
+			defer libraryServer.Close()
 
-	s, usersServer, libraryServer := setupTestServers(t, db, userID.String(), authHeader, authToken, bookID.String(), http.StatusOK, http.StatusNotFound)
-	defer s.Close()
-	defer usersServer.Close()
-	defer libraryServer.Close()
+			requestUserReading := server.RequestUserReading{BookId: tc.libraryData.bookID, Status: tc.status}
+			body, _ := json.Marshal(requestUserReading)
+			client := &http.Client{}
+			request, err := http.NewRequest("PUT", s.URL+server.ApiUserReadingPath, bytes.NewBuffer(body))
+			assert.NoError(t, err)
+			request.Header.Add(tc.usersData.authHeader, tc.usersData.authToken)
 
-	requestUserReading := server.RequestUserReading{BookId: bookID.String(), Status: status}
-	body, _ := json.Marshal(requestUserReading)
-	client := &http.Client{}
-	request, err := http.NewRequest("POST", s.URL+server.ApiUserReadingPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
-	request.Header.Add(authHeader, authToken)
+			response, err := client.Do(request)
+			assert.NoError(t, err)
+			defer common.CloseResponseBody(response)
+			assert.Equal(t, tc.expectedStatusCode, response.StatusCode)
 
-	response, err := client.Do(request)
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+			userReadings := getDBUserReading(t, db, userID)
+			assert.ElementsMatch(t, userReadings, tc.expectedUserReadings)
+		})
+	}
 }
