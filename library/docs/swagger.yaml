@@ -23,6 +23,13 @@ definitions:
       title:
         type: string
     type: object
+  server.RequestBookIDs:
+    properties:
+      book_ids:
+        items:
+          type: string
+        type: array
+    type: object
   server.RequestBookWithID:
     properties:
       authors:
@@ -63,6 +70,8 @@ definitions:
         items:
           type: string
         type: array
+      id:
+        type: string
       title:
         type: string
     type: object
@@ -102,7 +111,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/server.ErrorResponse'
-      summary: Deletes author
+      summary: Delete author
       tags:
       - Admin Authors
   /admin/books/{id}:
@@ -131,7 +140,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/server.ErrorResponse'
-      summary: Deletes book
+      summary: Delete book
       tags:
       - Admin Books
   /api/authors:
@@ -152,7 +161,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/server.ErrorResponse'
-      summary: Gets authors
+      summary: Get authors
       tags:
       - Authors
     post:
@@ -181,7 +190,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/server.ErrorResponse'
-      summary: Creates new author
+      summary: Create new author
       tags:
       - Authors
     put:
@@ -214,7 +223,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/server.ErrorResponse'
-      summary: Updates author
+      summary: Update author
       tags:
       - Authors
   /api/authors/{id}:
@@ -247,7 +256,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/server.ErrorResponse'
-      summary: Gets author
+      summary: Get author
       tags:
       - Authors
   /api/authors/{id}/books:
@@ -282,7 +291,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/server.ErrorResponse'
-      summary: Gets author's books
+      summary: Get author's books
       tags:
       - Authors
   /api/books:
@@ -312,7 +321,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/server.ErrorResponse'
-      summary: Creates new book
+      summary: Create new book
       tags:
       - Books
     put:
@@ -345,40 +354,39 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/server.ErrorResponse'
-      summary: Updates book
+      summary: Update book
       tags:
       - Books
-  /api/books/{id}:
-    get:
+  /api/books/search:
+    post:
       consumes:
       - application/json
-      description: Gets book with requested ID from DB
+      description: Gets books full info from DB
       parameters:
-      - description: Book ID
-        in: path
-        name: id
+      - description: Book ids
+        in: body
+        name: request
         required: true
-        type: string
+        schema:
+          $ref: '#/definitions/server.RequestBookIDs'
       produces:
       - application/json
       responses:
         "200":
-          description: Book's full info
+          description: Books full info
           schema:
-            $ref: '#/definitions/server.ResponseBookFullInfo'
+            items:
+              $ref: '#/definitions/server.ResponseBookFullInfo'
+            type: array
         "400":
-          description: Invalid book ID
-          schema:
-            $ref: '#/definitions/server.ErrorResponse'
-        "404":
-          description: Book not found
+          description: Invalid request
           schema:
             $ref: '#/definitions/server.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/server.ErrorResponse'
-      summary: Gets book
+      summary: Get books
       tags:
       - Books
   /ping:

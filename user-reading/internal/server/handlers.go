@@ -22,12 +22,12 @@ func mapUserReadingStatus(status string) (database.ReadingStatus, error) {
 
 func parseUserReading(r *http.Request) (uuid.UUID, database.ReadingStatus, error) {
 	decoder := json.NewDecoder(r.Body)
-	request := RequestUserReading{}
+	request := UserReading{}
 	err := decoder.Decode(&request)
 	if err != nil {
 		return uuid.Nil, "", err
 	}
-	bookUUID, err := uuid.Parse(request.BookId)
+	bookUUID, err := uuid.Parse(request.BookID)
 	if err != nil {
 		return uuid.Nil, "", err
 	}
@@ -99,7 +99,7 @@ func (cfg *ApiConfig) HandlePing(w http.ResponseWriter, r *http.Request) {
 // @Tags User reading
 // @Accept json
 // @Produce json
-// @Param request body RequestUserReading true "Book id with status"
+// @Param request body UserReading true "Book id with status"
 // @Success 201 {string} string "Created successfully"
 // @Failure 400 {object} ErrorResponse "Invalid request body"
 // @Failure 401 {object} ErrorResponse "Unauthorized"
@@ -142,7 +142,7 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 // @Tags User reading
 // @Accept json
 // @Produce json
-// @Param request body RequestUserReading true "Book id with status"
+// @Param request body UserReading true "Book id with status"
 // @Success 201 {string} string "Updated successfully"
 // @Failure 400 {object} ErrorResponse "Invalid request body"
 // @Failure 401 {object} ErrorResponse "Unauthorized"
@@ -223,6 +223,61 @@ func (cfg *ApiConfig) HandleDeleteApiUserReadingPath(w http.ResponseWriter, r *h
 		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return
 	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func getBookIds(userReading []database.GetUserReadingRow) []string {
+	res := make([]string, 0, len(userReading))
+	for _, book := range userReading {
+		res = append(res, book.BookID)
+	}
+	return res
+}
+
+// @Summary Get user reading
+// @Description Gets user reading from DB. Uses access token from an HTTP-only cookie
+// @Tags User reading
+// @Accept json
+// @Produce json
+// @Success 200 {array} UserReadingFullInfo "User reading"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/authors [get]
+func (cfg *ApiConfig) HandleGetApiUserReadingPath(w http.ResponseWriter, r *http.Request) {
+	if cfg.DB == nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
+		return
+	}
+
+	userID, usersStatusCode, err := clients.GetUser(r.Header, cfg.UsersServiceHost)
+	if usersStatusCode == http.StatusUnauthorized {
+		common.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to check authorization")
+		return
+	}
+
+	queries := database.New(cfg.DB)
+	userReading, dbErr := queries.GetUserReading(r.Context(), userID)
+	if dbErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
+		return
+	}
+
+	bookIDs := getBookIds(userReading)
+	statusCode, booksInfo, err := clients.GetBooksInfo(bookIDs, cfg.LibraryServiceHost)
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if statusCode != http.StatusOK {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to get books info")
+		return
+	}
+	//TODO: get booksInfo
 
 	w.WriteHeader(http.StatusNoContent)
 }

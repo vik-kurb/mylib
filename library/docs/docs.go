@@ -31,7 +31,7 @@ const docTemplate = `{
                 "tags": [
                     "Admin Authors"
                 ],
-                "summary": "Deletes author",
+                "summary": "Delete author",
                 "parameters": [
                     {
                         "type": "string",
@@ -75,7 +75,7 @@ const docTemplate = `{
                 "tags": [
                     "Admin Books"
                 ],
-                "summary": "Deletes book",
+                "summary": "Delete book",
                 "parameters": [
                     {
                         "type": "string",
@@ -119,7 +119,7 @@ const docTemplate = `{
                 "tags": [
                     "Authors"
                 ],
-                "summary": "Gets authors",
+                "summary": "Get authors",
                 "responses": {
                     "200": {
                         "description": "Author's short info",
@@ -149,7 +149,7 @@ const docTemplate = `{
                 "tags": [
                     "Authors"
                 ],
-                "summary": "Updates author",
+                "summary": "Update author",
                 "parameters": [
                     {
                         "description": "Author's info",
@@ -199,7 +199,7 @@ const docTemplate = `{
                 "tags": [
                     "Authors"
                 ],
-                "summary": "Creates new author",
+                "summary": "Create new author",
                 "parameters": [
                     {
                         "description": "Author's info",
@@ -245,7 +245,7 @@ const docTemplate = `{
                 "tags": [
                     "Authors"
                 ],
-                "summary": "Gets author",
+                "summary": "Get author",
                 "parameters": [
                     {
                         "type": "string",
@@ -295,7 +295,7 @@ const docTemplate = `{
                 "tags": [
                     "Authors"
                 ],
-                "summary": "Gets author's books",
+                "summary": "Get author's books",
                 "parameters": [
                     {
                         "type": "string",
@@ -348,7 +348,7 @@ const docTemplate = `{
                 "tags": [
                     "Books"
                 ],
-                "summary": "Updates book",
+                "summary": "Update book",
                 "parameters": [
                     {
                         "description": "Book's info",
@@ -398,7 +398,7 @@ const docTemplate = `{
                 "tags": [
                     "Books"
                 ],
-                "summary": "Creates new book",
+                "summary": "Create new book",
                 "parameters": [
                     {
                         "description": "Book's info",
@@ -432,9 +432,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/books/{id}": {
-            "get": {
-                "description": "Gets book with requested ID from DB",
+        "/api/books/search": {
+            "post": {
+                "description": "Gets books full info from DB",
                 "consumes": [
                     "application/json"
                 ],
@@ -444,31 +444,30 @@ const docTemplate = `{
                 "tags": [
                     "Books"
                 ],
-                "summary": "Gets book",
+                "summary": "Get books",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Book ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
+                        "description": "Book ids",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/server.RequestBookIDs"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Book's full info",
+                        "description": "Books full info",
                         "schema": {
-                            "$ref": "#/definitions/server.ResponseBookFullInfo"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/server.ResponseBookFullInfo"
+                            }
                         }
                     },
                     "400": {
-                        "description": "Invalid book ID",
-                        "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Book not found",
+                        "description": "Invalid request",
                         "schema": {
                             "$ref": "#/definitions/server.ErrorResponse"
                         }
@@ -543,6 +542,17 @@ const docTemplate = `{
                 }
             }
         },
+        "server.RequestBookIDs": {
+            "type": "object",
+            "properties": {
+                "book_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "server.RequestBookWithID": {
             "type": "object",
             "properties": {
@@ -604,6 +614,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "id": {
+                    "type": "string"
                 },
                 "title": {
                     "type": "string"

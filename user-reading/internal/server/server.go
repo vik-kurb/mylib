@@ -27,6 +27,7 @@ func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
 	sm.HandleFunc("POST "+ApiUserReadingPath, apiCfg.HandlePostApiUserReadingPath)
 	sm.HandleFunc("PUT "+ApiUserReadingPath, apiCfg.HandlePutApiUserReadingPath)
 	sm.HandleFunc(fmt.Sprintf("DELETE %v/{bookID}", ApiUserReadingPath), apiCfg.HandleDeleteApiUserReadingPath)
+	sm.HandleFunc("GET "+ApiUserReadingPath, apiCfg.HandleGetApiUserReadingPath)
 
 	// Swagger
 	sm.Handle("/swagger/", httpSwagger.WrapHandler)

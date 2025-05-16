@@ -1,8 +1,10 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"sort"
@@ -134,25 +136,7 @@ func (cfg *ApiConfig) HandlePostApiBooks(w http.ResponseWriter, r *http.Request)
 		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
 		return
 	}
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		}
-		if err != nil {
-			rollbackErr := tx.Rollback()
-			if rollbackErr != nil {
-				log.Print("Failed to rollback transaction ", rollbackErr)
-			}
-			common.RespondWithError(w, http.StatusInternalServerError, err.Error())
-		} else {
-			err = tx.Commit()
-			if err != nil {
-				common.RespondWithError(w, http.StatusInternalServerError, err.Error())
-			}
-			w.WriteHeader(http.StatusCreated)
-		}
-	}()
+	defer handleTx(tx, &err, w)
 
 	queries := database.New(tx)
 
@@ -167,6 +151,7 @@ func (cfg *ApiConfig) HandlePostApiBooks(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	}
+	w.WriteHeader(http.StatusCreated)
 }
 
 // @Summary Update book
@@ -205,25 +190,7 @@ func (cfg *ApiConfig) HandlePutApiBooks(w http.ResponseWriter, r *http.Request) 
 		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
 		return
 	}
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		}
-		if err != nil {
-			rollbackErr := tx.Rollback()
-			if rollbackErr != nil {
-				log.Print("Failed to rollback transaction ", rollbackErr)
-			}
-			common.RespondWithError(w, http.StatusInternalServerError, err.Error())
-		} else {
-			err = tx.Commit()
-			if err != nil {
-				common.RespondWithError(w, http.StatusInternalServerError, err.Error())
-			}
-			w.WriteHeader(http.StatusOK)
-		}
-	}()
+	defer handleTx(tx, &err, w)
 
 	queries := database.New(tx)
 
@@ -237,75 +204,10 @@ func (cfg *ApiConfig) HandlePutApiBooks(w http.ResponseWriter, r *http.Request) 
 	}
 
 	err = updateBookAuthors(queries, w, r, request.Authors, bookUUID)
+	if err != nil {
+		return
+	}
 	w.WriteHeader(http.StatusOK)
-}
-
-// @Summary Get book
-// @Description Gets book with requested ID from DB
-// @Tags Books
-// @Accept json
-// @Produce json
-// @Param id path string true "Book ID"
-// @Success 200 {object} ResponseBookFullInfo "Book's full info"
-// @Failure 400 {object} ErrorResponse "Invalid book ID"
-// @Failure 404 {object} ErrorResponse "Book not found"
-// @Failure 500 {object} ErrorResponse
-// @Router /api/books/{id} [get]
-func (cfg *ApiConfig) HandleGetApiBooks(w http.ResponseWriter, r *http.Request) {
-	if cfg.DB == nil {
-		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
-		return
-	}
-
-	uuid, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		common.RespondWithError(w, http.StatusBadRequest, "Invalid id")
-		return
-	}
-
-	tx, err := cfg.DB.BeginTx(r.Context(), nil)
-	if err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
-		return
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		}
-		if err != nil {
-			rollbackErr := tx.Rollback()
-			if rollbackErr != nil {
-				log.Print("Failed to rollback transaction ", rollbackErr)
-			}
-			common.RespondWithError(w, http.StatusInternalServerError, err.Error())
-		} else {
-			err = tx.Commit()
-			if err != nil {
-				common.RespondWithError(w, http.StatusInternalServerError, err.Error())
-			}
-			w.WriteHeader(http.StatusOK)
-		}
-	}()
-
-	queries := database.New(tx)
-
-	bookTitle, err := queries.GetBook(r.Context(), uuid)
-	if err == sql.ErrNoRows {
-		common.RespondWithError(w, http.StatusNotFound, "Unknown book id")
-		return
-	}
-	if err != nil {
-		return
-	}
-
-	authors, err := queries.GetBookAuthors(r.Context(), uuid)
-	if err != nil {
-		return
-	}
-	sort.Strings(authors)
-
-	common.RespondWithJSON(w, http.StatusOK, ResponseBookFullInfo{Title: bookTitle, Authors: authors}, nil)
 }
 
 // @Summary Delete book
@@ -338,4 +240,159 @@ func (cfg *ApiConfig) HandleDeleteAdminBooks(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func parseBookIds(r *http.Request) ([]uuid.UUID, error) {
+	decoder := json.NewDecoder(r.Body)
+	request := RequestBookIDs{}
+	err := decoder.Decode(&request)
+	if err != nil {
+		return nil, err
+	}
+	if len(request.BookIDs) == 0 {
+		return nil, errors.New("empty books list")
+	}
+	bookUUIDs := make([]uuid.UUID, 0)
+	for _, bookID := range request.BookIDs {
+		uuid, err := uuid.Parse(bookID)
+		if err != nil {
+			log.Print("Invalid bookID: ", bookID)
+			continue
+		}
+		bookUUIDs = append(bookUUIDs, uuid)
+	}
+	return bookUUIDs, nil
+}
+
+func handleTx(tx *sql.Tx, err *error, w http.ResponseWriter) {
+	if p := recover(); p != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Print("Failed to rollback transaction ", rollbackErr)
+		}
+		panic(p)
+	}
+	if err != nil && *err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Print("Failed to rollback transaction ", rollbackErr)
+		}
+		common.RespondWithError(w, http.StatusInternalServerError, (*err).Error())
+		return
+	}
+	if commitErr := tx.Commit(); commitErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, commitErr.Error())
+		return
+	}
+}
+
+func getUniqueAuthors(bookAuthors []database.GetAuthorsByBooksRow) []uuid.UUID {
+	uniqueAuthors := make(map[uuid.UUID]bool)
+	for _, bookAuthor := range bookAuthors {
+		uniqueAuthors[bookAuthor.AuthorID] = true
+	}
+	authors := make([]uuid.UUID, 0, len(uniqueAuthors))
+	for author := range uniqueAuthors {
+		authors = append(authors, author)
+	}
+	return authors
+}
+
+func getBooksAndAuthors(ctx context.Context, queries *database.Queries, bookUUIDs []uuid.UUID) ([]database.GetBooksRow, map[uuid.UUID][]string, error) {
+	type dbBooks struct {
+		books []database.GetBooksRow
+		err   error
+	}
+	booksChan := make(chan dbBooks)
+	go func() {
+		books, err := queries.GetBooks(ctx, bookUUIDs)
+		booksChan <- dbBooks{books: books, err: err}
+	}()
+
+	type dbBookAuthors struct {
+		bookToAuthors map[uuid.UUID][]string
+		err           error
+	}
+	authorsChan := make(chan dbBookAuthors)
+	go func() {
+		bookAuthors, err := queries.GetAuthorsByBooks(ctx, bookUUIDs)
+		if err != nil {
+			authorsChan <- dbBookAuthors{err: err}
+			return
+		}
+		authors := getUniqueAuthors(bookAuthors)
+		authorsInfo, err := queries.GetAuthorsByIDs(ctx, authors)
+		if err != nil {
+			authorsChan <- dbBookAuthors{err: err}
+			return
+		}
+		authorToName := make(map[uuid.UUID]string)
+		for _, author := range authorsInfo {
+			authorToName[author.ID] = author.FullName
+		}
+		res := dbBookAuthors{}
+		res.bookToAuthors = make(map[uuid.UUID][]string)
+		for _, bookAuthor := range bookAuthors {
+			authorName := authorToName[bookAuthor.AuthorID]
+			if authorName != "" {
+				res.bookToAuthors[bookAuthor.BookID] = append(res.bookToAuthors[bookAuthor.BookID], authorName)
+			}
+		}
+		authorsChan <- res
+	}()
+	dbBooksInfo := <-booksChan
+	if dbBooksInfo.err != nil {
+		return nil, nil, dbBooksInfo.err
+	}
+	dbAuthorsInfo := <-authorsChan
+	if dbAuthorsInfo.err != nil {
+		return nil, nil, dbAuthorsInfo.err
+	}
+	return dbBooksInfo.books, dbAuthorsInfo.bookToAuthors, nil
+}
+
+// @Summary Get books
+// @Description Gets books full info from DB
+// @Tags Books
+// @Accept json
+// @Produce json
+// @Param request body RequestBookIDs true "Book ids"
+// @Success 200 {array} ResponseBookFullInfo "Books full info"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/books/search [post]
+func (cfg *ApiConfig) HandlePostApiBooksSearch(w http.ResponseWriter, r *http.Request) {
+	if cfg.DB == nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
+		return
+	}
+
+	bookUUIDs, err := parseBookIds(r)
+	if err != nil {
+		common.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	tx, err := cfg.DB.BeginTx(r.Context(), nil)
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
+		return
+	}
+	defer handleTx(tx, &err, w)
+
+	queries := database.New(tx)
+	books, bookToAuthors, err := getBooksAndAuthors(r.Context(), queries, bookUUIDs)
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to get data")
+		return
+	}
+
+	response := make([]ResponseBookFullInfo, 0, len(books))
+	for _, book := range books {
+		responseBook := ResponseBookFullInfo{ID: book.ID.String(), Title: book.Title}
+		responseBook.Authors = bookToAuthors[book.ID]
+		response = append(response, responseBook)
+	}
+
+	sort.Slice(response, func(i, j int) bool { return response[i].Title < response[j].Title })
+
+	common.RespondWithJSON(w, http.StatusOK, response, nil)
 }

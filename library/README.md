@@ -26,8 +26,8 @@ Creates new book and stores it in DB
 ### PUT /api/books
 Updates existing book's info in DB
 
-### GET /api/books/{id}
-Gets book with requested ID from DB
+### GET /api/books
+Gets books with requested ID from DB
 
 ### POST /admin/books/{id}
 Deletes a book from DB with requested ID

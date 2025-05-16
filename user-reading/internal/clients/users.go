@@ -3,7 +3,6 @@ package clients
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	common "github.com/bakurvik/mylib-common"
@@ -26,12 +25,9 @@ func GetUser(h http.Header, host string) (uuid.UUID, int, error) {
 	if response.StatusCode == http.StatusUnauthorized {
 		return uuid.Nil, http.StatusUnauthorized, nil
 	}
-	responseBody, err := io.ReadAll(response.Body)
-	if err != nil {
-		return uuid.Nil, response.StatusCode, err
-	}
+	decoder := json.NewDecoder(response.Body)
 	responseData := ResponseUserID{}
-	err = json.Unmarshal(responseBody, &responseData)
+	err = decoder.Decode(&responseData)
 	if err != nil {
 		return uuid.Nil, response.StatusCode, err
 	}

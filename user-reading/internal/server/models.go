@@ -1,10 +1,16 @@
 package server
 
-type RequestUserReading struct {
-	BookId string `json:"book_id"`
+type UserReading struct {
+	BookID string `json:"book_id"`
 	Status string `json:"status"`
 }
 
 type ErrorResponse struct {
 	Error string `json:"error"`
+}
+
+type UserReadingFullInfo struct {
+	BookID
+	Title
+	Authors
 }

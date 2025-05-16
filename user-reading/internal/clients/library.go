@@ -1,6 +1,8 @@
 package clients
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -15,4 +17,21 @@ func CheckBook(bookID uuid.UUID, host string) (int, error) {
 	}
 	defer common.CloseResponseBody(response)
 	return response.StatusCode, nil
+}
+
+func GetBooksInfo(bookIDs []string, host string) (int, []ResponseBookFullInfo, error) {
+	requestBook := RequestBookIDs{BookIDs: bookIDs}
+	body, _ := json.Marshal(requestBook)
+	response, err := http.Post(fmt.Sprintf("%v%v", host, LibraryApiBooksSearchPath), "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return 0, nil, err
+	}
+	defer common.CloseResponseBody(response)
+	decoder := json.NewDecoder(response.Body)
+	responseData := []ResponseBookFullInfo{}
+	err = decoder.Decode(&responseData)
+	if err != nil {
+		return 0, nil, err
+	}
+	return response.StatusCode, responseData, nil
 }

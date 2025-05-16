@@ -41,10 +41,15 @@ type RequestBookWithID struct {
 }
 
 type ResponseBookFullInfo struct {
+	ID      string   `json:"id"`
 	Title   string   `json:"title"`
 	Authors []string `json:"authors"`
 }
 
 type ErrorResponse struct {
 	Error string `json:"error"`
+}
+
+type RequestBookIDs struct {
+	BookIDs []string `json:"book_ids"`
 }

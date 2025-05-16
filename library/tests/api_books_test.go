@@ -326,65 +326,6 @@ func TestUpdateBook_BadRequest(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 }
 
-func TestGetBooks_Success(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-	authors := []Author{
-		{id: uuid.New(), fullName: "Alexander Pushkin"},
-		{id: uuid.New(), fullName: "Leo Tolstoy"},
-	}
-	AddAuthorsDB(db, authors)
-	book := Book{id: uuid.New(), title: "War and Peace"}
-	AddBooksDB(db, []Book{book})
-	AddBookAuthorsDB(db, book.id.String(), []string{authors[0].id.String(), authors[1].id.String()})
-
-	s := setupTestServer(db)
-	defer s.Close()
-
-	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiBooksPath, book.id))
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusOK, response.StatusCode)
-
-	decoder := json.NewDecoder(response.Body)
-	responseBody := server.ResponseBookFullInfo{}
-	err = decoder.Decode(&responseBody)
-	assert.NoError(t, err)
-	assert.Equal(t, responseBody, server.ResponseBookFullInfo{Title: book.title, Authors: []string{authors[0].fullName, authors[1].fullName}})
-}
-
-func TestGetBooks_InvalidId(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-
-	s := setupTestServer(db)
-	defer s.Close()
-
-	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiBooksPath, "invalid_id"))
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
-}
-
-func TestGetBooks_UnknownId(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-
-	s := setupTestServer(db)
-	defer s.Close()
-
-	response, err := http.Get(fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiBooksPath, uuid.New()))
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusNotFound, response.StatusCode)
-}
-
 func TestDeleteBook_Success(t *testing.T) {
 	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
@@ -454,4 +395,91 @@ func TestDeleteBook_UnknownId(t *testing.T) {
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
+}
+
+func TestGetBooks(t *testing.T) {
+	book1 := uuid.New()
+	book2 := uuid.New()
+	book3 := uuid.New()
+	author1 := uuid.New()
+	author2 := uuid.New()
+
+	type testCase struct {
+		name               string
+		requestedBooks     []string
+		expectedStatusCode int
+		expectedResponse   []server.ResponseBookFullInfo
+	}
+
+	tests := []testCase{
+		{
+			name:               "success",
+			requestedBooks:     []string{book1.String(), book2.String(), book3.String()},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse: []server.ResponseBookFullInfo{
+				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}},
+				{ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}},
+				{ID: book3.String(), Title: "Title 3", Authors: nil}},
+		},
+		{
+			name:               "empty request",
+			requestedBooks:     []string{},
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse:   nil,
+		},
+		{
+			name:               "skip invalid bookID",
+			requestedBooks:     []string{book1.String(), book2.String(), book3.String(), "invalid_book_id"},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse: []server.ResponseBookFullInfo{
+				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}},
+				{ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}},
+				{ID: book3.String(), Title: "Title 3", Authors: nil}},
+		},
+		{
+			name:               "skip unknown bookID",
+			requestedBooks:     []string{book1.String(), book2.String(), book3.String(), uuid.NewString()},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse: []server.ResponseBookFullInfo{
+				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}},
+				{ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}},
+				{ID: book3.String(), Title: "Title 3", Authors: nil}},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
+			assert.NoError(t, err)
+			defer common.CloseDB(db)
+			cleanupDB(db)
+			AddBooksDB(db, []Book{{id: book1, title: "Title 1"}, {id: book2, title: "Title 2"}, {id: book3, title: "Title 3"}})
+			AddAuthorsDB(db, []Author{{id: author1, fullName: "Author 1"}, {id: author2, fullName: "Author 2"}})
+			AddBookAuthorsDB(db, book1.String(), []string{author1.String()})
+			AddBookAuthorsDB(db, book2.String(), []string{author1.String(), author2.String()})
+
+			s := setupTestServer(db)
+			defer s.Close()
+
+			requestBooks := server.RequestBookIDs{BookIDs: tc.requestedBooks}
+			body, _ := json.Marshal(requestBooks)
+			client := &http.Client{}
+			request, err := http.NewRequest("POST", s.URL+server.ApiBooksSearchPath, bytes.NewBuffer(body))
+			assert.NoError(t, err)
+
+			response, err := client.Do(request)
+			assert.NoError(t, err)
+			defer common.CloseResponseBody(response)
+			assert.Equal(t, tc.expectedStatusCode, response.StatusCode)
+
+			if tc.expectedResponse != nil {
+				decoder := json.NewDecoder(response.Body)
+				responseBody := []server.ResponseBookFullInfo{}
+				err = decoder.Decode(&responseBody)
+				assert.NoError(t, err)
+
+				assert.ElementsMatch(t, responseBody, tc.expectedResponse)
+			}
+		})
+	}
 }
