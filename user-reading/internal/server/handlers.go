@@ -230,7 +230,15 @@ func (cfg *ApiConfig) HandleDeleteApiUserReadingPath(w http.ResponseWriter, r *h
 func getBookIds(userReading []database.GetUserReadingRow) []string {
 	res := make([]string, 0, len(userReading))
 	for _, book := range userReading {
-		res = append(res, book.BookID)
+		res = append(res, book.BookID.String())
+	}
+	return res
+}
+
+func getBookToStatus(userReading []database.GetUserReadingRow) map[string]string {
+	res := make(map[string]string)
+	for _, book := range userReading {
+		res[book.BookID.String()] = string(book.Status)
 	}
 	return res
 }
@@ -240,7 +248,7 @@ func getBookIds(userReading []database.GetUserReadingRow) []string {
 // @Tags User reading
 // @Accept json
 // @Produce json
-// @Success 200 {array} UserReadingFullInfo "User reading"
+// @Success 200 {array} clients.ResponseBookFullInfo "User reading"
 // @Failure 401 {object} ErrorResponse "Unauthorized"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/authors [get]
@@ -266,6 +274,10 @@ func (cfg *ApiConfig) HandleGetApiUserReadingPath(w http.ResponseWriter, r *http
 		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return
 	}
+	if len(userReading) == 0 {
+		common.RespondWithJSON(w, http.StatusOK, []ResponseUserReading{}, nil)
+		return
+	}
 
 	bookIDs := getBookIds(userReading)
 	statusCode, booksInfo, err := clients.GetBooksInfo(bookIDs, cfg.LibraryServiceHost)
@@ -277,7 +289,15 @@ func (cfg *ApiConfig) HandleGetApiUserReadingPath(w http.ResponseWriter, r *http
 		common.RespondWithError(w, http.StatusInternalServerError, "Failed to get books info")
 		return
 	}
-	//TODO: get booksInfo
+	bookToStatus := getBookToStatus(userReading)
+	response := []ResponseUserReading{}
+	for _, bookInfo := range booksInfo {
+		status, ok := bookToStatus[bookInfo.ID]
+		if !ok {
+			continue
+		}
+		response = append(response, ResponseUserReading{ID: bookInfo.ID, Title: bookInfo.Title, Authors: bookInfo.Authors, Status: status})
+	}
 
-	w.WriteHeader(http.StatusNoContent)
+	common.RespondWithJSON(w, http.StatusOK, response, nil)
 }

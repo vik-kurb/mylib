@@ -35,6 +35,7 @@ type usersServiceData struct {
 type libraryServiceData struct {
 	bookID     string
 	statusCode int
+	booksInfo  []clients.ResponseBookFullInfo
 }
 
 func mockUsersServer(t *testing.T, data usersServiceData) *httptest.Server {
@@ -55,6 +56,10 @@ func mockLibraryServer(t *testing.T, data libraryServiceData) *httptest.Server {
 	libraryServiceMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == fmt.Sprintf("%v/%v", clients.LibraryApiBooksPath, data.bookID) {
 			common.RespondWithJSON(w, data.statusCode, struct{}{}, nil)
+			return
+		}
+		if r.URL.Path == clients.LibraryApiBooksSearchPath {
+			common.RespondWithJSON(w, data.statusCode, data.booksInfo, nil)
 			return
 		}
 		http.NotFound(w, r)
@@ -394,6 +399,104 @@ func TestDeleteUserReading(t *testing.T) {
 
 			userReadings := getDBUserReading(t, db, userID)
 			assert.ElementsMatch(t, userReadings, tc.expectedUserReadings)
+		})
+	}
+}
+
+func TestGetUserReading(t *testing.T) {
+	userID := uuid.New()
+	book1 := uuid.New()
+	book2 := uuid.New()
+	// book3 := uuid.New()
+
+	type testCase struct {
+		name               string
+		usersData          usersServiceData
+		libraryData        libraryServiceData
+		dbUserReadings     []server.UserReading
+		expectedStatusCode int
+		expectedResponse   []server.ResponseUserReading
+	}
+
+	tests := []testCase{
+		{
+			name:               "success_one_book",
+			usersData:          usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:        libraryServiceData{statusCode: http.StatusOK, booksInfo: []clients.ResponseBookFullInfo{{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}}}},
+			dbUserReadings:     []server.UserReading{{BookID: book1.String(), Status: "finished"}},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse: []server.ResponseUserReading{
+				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}, Status: "finished"}},
+		},
+		{
+			name:               "success_several_books_and_authors",
+			usersData:          usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:        libraryServiceData{statusCode: http.StatusOK, booksInfo: []clients.ResponseBookFullInfo{{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}}, {ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}}}},
+			dbUserReadings:     []server.UserReading{{BookID: book1.String(), Status: "finished"}, {BookID: book2.String(), Status: "reading"}},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse: []server.ResponseUserReading{
+				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}, Status: "finished"},
+				{ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}, Status: "reading"}},
+		},
+		{
+			name:               "unauthorized",
+			usersData:          usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusUnauthorized},
+			libraryData:        libraryServiceData{statusCode: http.StatusOK, booksInfo: []clients.ResponseBookFullInfo{{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}}}},
+			dbUserReadings:     []server.UserReading{{BookID: book1.String(), Status: "finished"}},
+			expectedStatusCode: http.StatusUnauthorized,
+			expectedResponse:   nil,
+		},
+		{
+			name:               "no_user_reading",
+			usersData:          usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:        libraryServiceData{statusCode: http.StatusOK, booksInfo: []clients.ResponseBookFullInfo{{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}}}},
+			dbUserReadings:     []server.UserReading{},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse:   []server.ResponseUserReading{},
+		},
+		{
+			name:               "filter_out_unknown_book",
+			usersData:          usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:        libraryServiceData{statusCode: http.StatusOK, booksInfo: []clients.ResponseBookFullInfo{{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}}}},
+			dbUserReadings:     []server.UserReading{{BookID: book1.String(), Status: "finished"}, {BookID: book2.String(), Status: "reading"}},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse: []server.ResponseUserReading{
+				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}, Status: "finished"}},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
+			assert.NoError(t, err)
+			defer common.CloseDB(db)
+			cleanupDB(db)
+
+			addDBUserReading(db, userID.String(), tc.dbUserReadings)
+
+			s, usersServer, libraryServer := setupTestServers(t, db, tc.usersData, tc.libraryData)
+			defer s.Close()
+			defer usersServer.Close()
+			defer libraryServer.Close()
+
+			client := &http.Client{}
+			request, err := http.NewRequest("GET", s.URL+server.ApiUserReadingPath, nil)
+			assert.NoError(t, err)
+			request.Header.Add(tc.usersData.authHeader, tc.usersData.authToken)
+
+			response, err := client.Do(request)
+			assert.NoError(t, err)
+			defer common.CloseResponseBody(response)
+			assert.Equal(t, tc.expectedStatusCode, response.StatusCode)
+
+			if tc.expectedResponse != nil {
+				decoder := json.NewDecoder(response.Body)
+				responseBody := []server.ResponseUserReading{}
+				err = decoder.Decode(&responseBody)
+				assert.NoError(t, err)
+
+				assert.ElementsMatch(t, responseBody, tc.expectedResponse)
+			}
 		})
 	}
 }

@@ -20,6 +20,42 @@ const docTemplate = `{
     "basePath": "{{.BasePath}}",
     "paths": {
         "/api/authors": {
+            "get": {
+                "description": "Gets user reading from DB. Uses access token from an HTTP-only cookie",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User reading"
+                ],
+                "summary": "Get user reading",
+                "responses": {
+                    "200": {
+                        "description": "User reading",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/clients.ResponseBookFullInfo"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            },
             "post": {
                 "description": "Updates user reading in DB. Uses access token from an HTTP-only cookie",
                 "consumes": [
@@ -39,7 +75,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/server.RequestUserReading"
+                            "$ref": "#/definitions/server.UserReading"
                         }
                     }
                 ],
@@ -146,6 +182,23 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "clients.ResponseBookFullInfo": {
+            "type": "object",
+            "properties": {
+                "authors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "server.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -154,7 +207,7 @@ const docTemplate = `{
                 }
             }
         },
-        "server.RequestUserReading": {
+        "server.UserReading": {
             "type": "object",
             "properties": {
                 "book_id": {

@@ -1,11 +1,22 @@
 basePath: /
 definitions:
+  clients.ResponseBookFullInfo:
+    properties:
+      authors:
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      title:
+        type: string
+    type: object
   server.ErrorResponse:
     properties:
       error:
         type: string
     type: object
-  server.RequestUserReading:
+  server.UserReading:
     properties:
       book_id:
         type: string
@@ -23,6 +34,31 @@ info:
   version: "1.0"
 paths:
   /api/authors:
+    get:
+      consumes:
+      - application/json
+      description: Gets user reading from DB. Uses access token from an HTTP-only
+        cookie
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User reading
+          schema:
+            items:
+              $ref: '#/definitions/clients.ResponseBookFullInfo'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Get user reading
+      tags:
+      - User reading
     post:
       consumes:
       - application/json
@@ -34,7 +70,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/server.RequestUserReading'
+          $ref: '#/definitions/server.UserReading'
       produces:
       - application/json
       responses:
