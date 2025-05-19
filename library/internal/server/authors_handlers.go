@@ -86,7 +86,7 @@ func (cfg *ApiConfig) HandleGetApiAuthors(w http.ResponseWriter, r *http.Request
 
 	responseAuthors := make([]ResponseAuthorShortInfo, 0, len(authors))
 	for _, author := range authors {
-		responseAuthors = append(responseAuthors, ResponseAuthorShortInfo{FullName: author.FullName, Id: author.ID.String()})
+		responseAuthors = append(responseAuthors, ResponseAuthorShortInfo{FullName: author.FullName, ID: author.ID.String()})
 	}
 	common.RespondWithJSON(w, http.StatusOK, responseAuthors, nil)
 }
@@ -102,7 +102,7 @@ func (cfg *ApiConfig) HandleGetApiAuthors(w http.ResponseWriter, r *http.Request
 // @Failure 404 {object} ErrorResponse "Author not found"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/authors/{id} [get]
-func (cfg *ApiConfig) HandleGetApiAuthorsId(w http.ResponseWriter, r *http.Request) {
+func (cfg *ApiConfig) HandleGetApiAuthorsID(w http.ResponseWriter, r *http.Request) {
 	if cfg.DB == nil {
 		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
 		return
@@ -179,7 +179,7 @@ func (cfg *ApiConfig) HandlePutApiAuthors(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	uuid, uuidErr := uuid.Parse(request.Id)
+	uuid, uuidErr := uuid.Parse(request.ID)
 	if uuidErr != nil {
 		common.RespondWithError(w, http.StatusBadRequest, "Invalid id")
 		return
@@ -249,7 +249,7 @@ func (cfg *ApiConfig) HandleGetApiAuthorsBooks(w http.ResponseWriter, r *http.Re
 	}
 	response := make([]ResponseBook, 0, len(books))
 	for _, book := range books {
-		response = append(response, ResponseBook{Id: book.ID.String(), Title: book.Title})
+		response = append(response, ResponseBook{ID: book.ID.String(), Title: book.Title})
 	}
 	sort.Slice(response, func(i, j int) bool { return response[i].Title < response[j].Title })
 

@@ -20,9 +20,9 @@ type AuthorsDiff struct {
 	authorsToDelete []uuid.UUID
 }
 
-func insertBookAuthors(queries *database.Queries, w http.ResponseWriter, r *http.Request, authorIds []string, bookID uuid.UUID) error {
+func insertBookAuthors(queries *database.Queries, w http.ResponseWriter, r *http.Request, authorIDs []string, bookID uuid.UUID) error {
 	authors := make([]uuid.UUID, 0)
-	for _, authorID := range authorIds {
+	for _, authorID := range authorIDs {
 		authorUUID, err := uuid.Parse(authorID)
 		if err != nil {
 			log.Print("Invalid author ", authorID)
@@ -70,14 +70,14 @@ func mergeAuthors(oldAuthors []uuid.UUID, newAuthors []uuid.UUID) AuthorsDiff {
 	return diff
 }
 
-func updateBookAuthors(queries *database.Queries, w http.ResponseWriter, r *http.Request, authorIds []string, bookID uuid.UUID) error {
+func updateBookAuthors(queries *database.Queries, w http.ResponseWriter, r *http.Request, authorIDs []string, bookID uuid.UUID) error {
 	oldAuthorIDs, dbErr := queries.GetAuthorsByBook(r.Context(), bookID)
 	if dbErr != nil {
 		return dbErr
 	}
 
 	newAuthors := make([]uuid.UUID, 0)
-	for _, authorID := range authorIds {
+	for _, authorID := range authorIDs {
 		authorUUID, err := uuid.Parse(authorID)
 		if err != nil {
 			log.Print("Invalid author ", authorID)
@@ -174,7 +174,7 @@ func (cfg *ApiConfig) HandlePutApiBooks(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	bookUUID, uuidErr := uuid.Parse(request.Id)
+	bookUUID, uuidErr := uuid.Parse(request.ID)
 	if uuidErr != nil {
 		common.RespondWithError(w, http.StatusBadRequest, "Invalid id")
 		return
@@ -242,7 +242,7 @@ func (cfg *ApiConfig) HandleDeleteAdminBooks(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusOK)
 }
 
-func parseBookIds(r *http.Request) ([]uuid.UUID, error) {
+func parseBookIDs(r *http.Request) ([]uuid.UUID, error) {
 	decoder := json.NewDecoder(r.Body)
 	request := RequestBookIDs{}
 	err := decoder.Decode(&request)
@@ -365,7 +365,7 @@ func (cfg *ApiConfig) HandlePostApiBooksSearch(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	bookUUIDs, err := parseBookIds(r)
+	bookUUIDs, err := parseBookIDs(r)
 	if err != nil {
 		common.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return

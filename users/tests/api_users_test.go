@@ -81,7 +81,7 @@ func TestCreateUser_Success(t *testing.T) {
 	assert.NotEqual(t, user.hashedPassword, request.Password)
 
 	newRefreshToken := getDbToken(db, cookie.Value)
-	assert.Equal(t, newRefreshToken.userId, responseBody.ID)
+	assert.Equal(t, newRefreshToken.userID, responseBody.ID)
 	assert.False(t, newRefreshToken.revokedAt.Valid)
 }
 
@@ -250,8 +250,8 @@ func TestGetUser_AuthorizedAsAnotherUser(t *testing.T) {
 
 	request, requestErr := http.NewRequest("GET", fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiUsersPath, userID), nil)
 	assert.NoError(t, requestErr)
-	anotherUserId := "4fc40366-ff15-4653-be30-1bba21f016c1"
-	uuid, _ := uuid.Parse(anotherUserId)
+	anotherUserID := "4fc40366-ff15-4653-be30-1bba21f016c1"
+	uuid, _ := uuid.Parse(anotherUserID)
 	accessToken, _ := auth.MakeJWT(uuid, authSecretKey, time.Hour)
 	request.Header.Add("Authorization", "Bearer "+accessToken)
 

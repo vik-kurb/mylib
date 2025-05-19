@@ -12,20 +12,20 @@ import (
 	"github.com/google/uuid"
 )
 
-const getUserById = `-- name: GetUserById :one
+const getUserByID = `-- name: GetUserByID :one
 SELECT login_name, email, birth_date FROM users
 WHERE id = $1
 `
 
-type GetUserByIdRow struct {
+type GetUserByIDRow struct {
 	LoginName string
 	Email     string
 	BirthDate sql.NullTime
 }
 
-func (q *Queries) GetUserById(ctx context.Context, id uuid.UUID) (GetUserByIdRow, error) {
-	row := q.db.QueryRowContext(ctx, getUserById, id)
-	var i GetUserByIdRow
+func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserByID, id)
+	var i GetUserByIDRow
 	err := row.Scan(&i.LoginName, &i.Email, &i.BirthDate)
 	return i, err
 }

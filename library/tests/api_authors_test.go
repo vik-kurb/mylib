@@ -178,9 +178,9 @@ func TestGetAuthors_Success(t *testing.T) {
 	err = decoder.Decode(&responseBody)
 	assert.NoError(t, err)
 	assert.Equal(t, responseBody, []server.ResponseAuthorShortInfo{
-		{FullName: "Alexander Pushkin", Id: dbAuthors[0].id.String()},
-		{FullName: "Fyodor Dostoevsky", Id: dbAuthors[2].id.String()},
-		{FullName: "Leo Tolstoy", Id: dbAuthors[1].id.String()}})
+		{FullName: "Alexander Pushkin", ID: dbAuthors[0].id.String()},
+		{FullName: "Fyodor Dostoevsky", ID: dbAuthors[2].id.String()},
+		{FullName: "Leo Tolstoy", ID: dbAuthors[1].id.String()}})
 }
 
 func TestGetAuthors_NoAuthors(t *testing.T) {
@@ -204,7 +204,7 @@ func TestGetAuthors_NoAuthors(t *testing.T) {
 	assert.Equal(t, len(responseBody), 0)
 }
 
-func TestGetAuthorsId_Success(t *testing.T) {
+func TestGetAuthorsID_Success(t *testing.T) {
 	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
@@ -229,7 +229,7 @@ func TestGetAuthorsId_Success(t *testing.T) {
 	assert.Equal(t, responseBody, server.ResponseAuthorFullInfo{FullName: author.fullName, BirthDate: author.birthDate.Time.Format(common.DateFormat), DeathDate: author.deathDate.Time.Format(common.DateFormat)})
 }
 
-func TestGetAuthorsId_NotFound(t *testing.T) {
+func TestGetAuthorsID_NotFound(t *testing.T) {
 	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
@@ -245,7 +245,7 @@ func TestGetAuthorsId_NotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
-func TestGetAuthorsId_InvalidId(t *testing.T) {
+func TestGetAuthorsID_InvalidID(t *testing.T) {
 	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
@@ -261,7 +261,7 @@ func TestGetAuthorsId_InvalidId(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 }
 
-func TestDeleteAuthorsId_Success(t *testing.T) {
+func TestDeleteAuthorsID_Success(t *testing.T) {
 	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
@@ -284,7 +284,7 @@ func TestDeleteAuthorsId_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 }
 
-func TestDeleteAuthorsId_NoAuthor(t *testing.T) {
+func TestDeleteAuthorsID_NoAuthor(t *testing.T) {
 	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
@@ -304,7 +304,7 @@ func TestDeleteAuthorsId_NoAuthor(t *testing.T) {
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 }
 
-func TestDeleteAuthorsId_InvalidId(t *testing.T) {
+func TestDeleteAuthorsID_InvalidID(t *testing.T) {
 	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
@@ -396,7 +396,7 @@ func TestUpdateAuthor_NotFoundAuthor(t *testing.T) {
 	assert.Equal(t, len(authors), 0)
 }
 
-func TestUpdateAuthor_InvalidId(t *testing.T) {
+func TestUpdateAuthor_InvalidID(t *testing.T) {
 	db, dbErr := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, dbErr)
 	defer common.CloseDB(db)
@@ -458,7 +458,7 @@ func TestGetAuthorBooks_Success(t *testing.T) {
 	responseBody := make([]server.ResponseBook, 0)
 	err = decoder.Decode(&responseBody)
 	assert.NoError(t, err)
-	assert.Equal(t, responseBody, []server.ResponseBook{{Id: books[1].id.String(), Title: books[1].title}, {Id: books[0].id.String(), Title: books[0].title}})
+	assert.Equal(t, responseBody, []server.ResponseBook{{ID: books[1].id.String(), Title: books[1].title}, {ID: books[0].id.String(), Title: books[0].title}})
 }
 
 func TestGetAuthorBooks_NoBooks(t *testing.T) {

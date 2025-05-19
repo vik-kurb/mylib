@@ -7,7 +7,7 @@ type RequestAuthor struct {
 }
 
 type RequestAuthorWithID struct {
-	Id        string `json:"id"`
+	ID        string `json:"id"`
 	FullName  string `json:"full_name"`
 	BirthDate string `json:"birth_date,omitempty"`
 	DeathDate string `json:"death_date,omitempty"`
@@ -15,7 +15,7 @@ type RequestAuthorWithID struct {
 
 type ResponseAuthorShortInfo struct {
 	FullName string `json:"full_name"`
-	Id       string `json:"id"`
+	ID       string `json:"id"`
 }
 
 type ResponseAuthorFullInfo struct {
@@ -25,7 +25,7 @@ type ResponseAuthorFullInfo struct {
 }
 
 type ResponseBook struct {
-	Id    string `json:"id"`
+	ID    string `json:"id"`
 	Title string `json:"title"`
 }
 
@@ -35,7 +35,7 @@ type RequestBook struct {
 }
 
 type RequestBookWithID struct {
-	Id      string   `json:"id"`
+	ID      string   `json:"id"`
 	Title   string   `json:"title"`
 	Authors []string `json:"authors"`
 }

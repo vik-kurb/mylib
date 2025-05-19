@@ -179,7 +179,7 @@ func (cfg *ApiConfig) HandleGetApiUsers(w http.ResponseWriter, r *http.Request) 
 
 	authUserID, _ := checkAuthorization(cfg, r)
 
-	user, userErr := cfg.DB.GetUserById(r.Context(), requestUserUUID)
+	user, userErr := cfg.DB.GetUserByID(r.Context(), requestUserUUID)
 	if userErr != nil {
 		common.RespondWithError(w, http.StatusNotFound, userErr.Error())
 		return

@@ -30,7 +30,7 @@ type User struct {
 }
 
 type RefreshToken struct {
-	userId    string
+	userID    string
 	expiresAt time.Time
 	revokedAt sql.NullTime
 }
@@ -64,7 +64,7 @@ func setupTestServer(db *sql.DB) *httptest.Server {
 func getDbToken(db *sql.DB, token string) *RefreshToken {
 	row := db.QueryRow(selectRefreshToken, token)
 	dbToken := RefreshToken{}
-	err := row.Scan(&dbToken.userId, &dbToken.expiresAt, &dbToken.revokedAt)
+	err := row.Scan(&dbToken.userID, &dbToken.expiresAt, &dbToken.revokedAt)
 	if err != nil {
 		return nil
 	}

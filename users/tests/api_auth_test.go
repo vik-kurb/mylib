@@ -25,7 +25,7 @@ const (
 
 func addDBToken(db *sql.DB, refreshToken RefreshToken) string {
 	row := db.QueryRow(
-		insertRefreshToken, refreshToken.userId, refreshToken.expiresAt, refreshToken.revokedAt)
+		insertRefreshToken, refreshToken.userID, refreshToken.expiresAt, refreshToken.revokedAt)
 	token := ""
 	err := row.Scan(&token)
 	if err != nil {
@@ -68,7 +68,7 @@ func TestLogin_Success(t *testing.T) {
 	assert.NotEqual(t, cookie.Value, "")
 
 	newRefreshToken := getDbToken(db, cookie.Value)
-	assert.Equal(t, newRefreshToken.userId, responseBody.ID)
+	assert.Equal(t, newRefreshToken.userID, responseBody.ID)
 	assert.False(t, newRefreshToken.revokedAt.Valid)
 }
 
@@ -123,7 +123,7 @@ func TestRefresh_Success(t *testing.T) {
 	cleanupDB(db)
 	userID := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
 	expiresAt := time.Now().Add(time.Hour)
-	token := addDBToken(db, RefreshToken{userId: userID, expiresAt: expiresAt})
+	token := addDBToken(db, RefreshToken{userID: userID, expiresAt: expiresAt})
 
 	s := setupTestServer(db)
 	defer s.Close()
@@ -160,7 +160,7 @@ func TestRefresh_Success(t *testing.T) {
 	assert.NotEqual(t, cookie.Value, token)
 
 	newRefreshToken := getDbToken(db, cookie.Value)
-	assert.Equal(t, newRefreshToken.userId, userID)
+	assert.Equal(t, newRefreshToken.userID, userID)
 	assert.False(t, newRefreshToken.revokedAt.Valid)
 
 	oldRefreshToken := getDbToken(db, token)
@@ -174,7 +174,7 @@ func TestRefresh_NoCookie(t *testing.T) {
 	cleanupDB(db)
 	userID := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
 	expiresAt := time.Now().Add(time.Hour)
-	addDBToken(db, RefreshToken{userId: userID, expiresAt: expiresAt})
+	addDBToken(db, RefreshToken{userID: userID, expiresAt: expiresAt})
 
 	s := setupTestServer(db)
 	defer s.Close()
@@ -224,7 +224,7 @@ func TestRevoke_Success(t *testing.T) {
 	cleanupDB(db)
 	userID := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
 	expiresAt := time.Now().Add(time.Hour)
-	token := addDBToken(db, RefreshToken{userId: userID, expiresAt: expiresAt})
+	token := addDBToken(db, RefreshToken{userID: userID, expiresAt: expiresAt})
 
 	s := setupTestServer(db)
 	defer s.Close()
@@ -258,7 +258,7 @@ func TestRevoke_NoCookie(t *testing.T) {
 	cleanupDB(db)
 	userID := addDBUser(db, User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"})
 	expiresAt := time.Now().Add(time.Hour)
-	token := addDBToken(db, RefreshToken{userId: userID, expiresAt: expiresAt})
+	token := addDBToken(db, RefreshToken{userID: userID, expiresAt: expiresAt})
 
 	s := setupTestServer(db)
 	defer s.Close()

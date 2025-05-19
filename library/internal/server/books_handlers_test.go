@@ -85,7 +85,7 @@ func TestParseBookIDs_AllValid(t *testing.T) {
 	body := fmt.Sprintf(`{"book_ids": ["%v", "%v"]}`, id1, id2)
 
 	req := makeRequest(body)
-	uuids, err := parseBookIds(req)
+	uuids, err := parseBookIDs(req)
 	assert.NoError(t, err)
 	assert.ElementsMatch(t, uuids, []uuid.UUID{id1, id2})
 }
@@ -97,7 +97,7 @@ func TestParseBookIDs_FilterOutInvalid(t *testing.T) {
 	body := fmt.Sprintf(`{"book_ids": ["%v", "%v", "%v"]}`, id1, id2, invalidID)
 
 	req := makeRequest(body)
-	uuids, err := parseBookIds(req)
+	uuids, err := parseBookIDs(req)
 	assert.NoError(t, err)
 	assert.ElementsMatch(t, uuids, []uuid.UUID{id1, id2})
 }
@@ -106,7 +106,7 @@ func TestParseBookIDs_Empty(t *testing.T) {
 	body := `{"book_ids": []}`
 
 	req := makeRequest(body)
-	uuids, err := parseBookIds(req)
+	uuids, err := parseBookIDs(req)
 	assert.Error(t, err)
 	assert.ElementsMatch(t, uuids, nil)
 }
@@ -115,7 +115,7 @@ func TestParseBookIDs_InvalidJSON(t *testing.T) {
 	body := `invalid_json`
 
 	req := makeRequest(body)
-	uuids, err := parseBookIds(req)
+	uuids, err := parseBookIDs(req)
 	assert.Error(t, err)
 	assert.ElementsMatch(t, uuids, nil)
 }

@@ -227,7 +227,7 @@ func (cfg *ApiConfig) HandleDeleteApiUserReadingPath(w http.ResponseWriter, r *h
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func getBookIds(userReading []database.GetUserReadingRow) []string {
+func getBookIDs(userReading []database.GetUserReadingRow) []string {
 	res := make([]string, 0, len(userReading))
 	for _, book := range userReading {
 		res = append(res, book.BookID.String())
@@ -279,7 +279,7 @@ func (cfg *ApiConfig) HandleGetApiUserReadingPath(w http.ResponseWriter, r *http
 		return
 	}
 
-	bookIDs := getBookIds(userReading)
+	bookIDs := getBookIDs(userReading)
 	statusCode, booksInfo, err := clients.GetBooksInfo(bookIDs, cfg.LibraryServiceHost)
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, err.Error())

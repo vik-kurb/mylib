@@ -39,6 +39,11 @@ definitions:
       login:
         type: string
     type: object
+  server.ResponseUserID:
+    properties:
+      user_id:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -49,102 +54,11 @@ info:
   title: Users Service API
   version: "1.0"
 paths:
-  /api/login:
-    post:
-      consumes:
-      - application/json
-      description: Checks password and returns access and refresh tokens
-      parameters:
-      - description: User's login data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/server.RequestLogin'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Logined successfully
-          headers:
-            Set-Cookie:
-              description: HTTP-only cookie named refresh_token
-              type: string
-          schema:
-            $ref: '#/definitions/server.ResponseToken'
-        "400":
-          description: Invalid request body
-          schema:
-            $ref: '#/definitions/server.ErrorResponse'
-        "401":
-          description: Invalid password
-          schema:
-            $ref: '#/definitions/server.ErrorResponse'
-        "404":
-          description: User not found
-          schema:
-            $ref: '#/definitions/server.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/server.ErrorResponse'
-      summary: Login user
-      tags:
-      - Auth
-  /api/refresh:
-    post:
-      consumes:
-      - application/json
-      description: Checks refresh token from an HTTP-only cookie and returns new access
-        and refresh tokens
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Refreshed tokens successfully
-          headers:
-            Set-Cookie:
-              description: HTTP-only cookie named refresh_token
-              type: string
-          schema:
-            $ref: '#/definitions/server.ResponseToken'
-        "401":
-          description: Invalid refresh token
-          schema:
-            $ref: '#/definitions/server.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/server.ErrorResponse'
-      summary: Refresh tokens
-      tags:
-      - Auth
-  /api/revoke:
-    post:
-      consumes:
-      - application/json
-      description: Revokes refresh token from an HTTP-only cookie
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: No refresh token in cookie
-          schema:
-            $ref: '#/definitions/server.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/server.ErrorResponse'
-      summary: Revoke token
-      tags:
-      - Auth
   /api/users:
     delete:
       consumes:
       - application/json
-      description: Deletes user from DB. Uses refresh token from an HTTP-only cookie
+      description: Deletes user from DB. Uses access token from an HTTP-only cookie
       produces:
       - application/json
       responses:
@@ -201,8 +115,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Updates existing user's info in DB. Uses refresh token from an
-        HTTP-only cookie
+      description: Updates existing user's info in DB. Uses access token from an HTTP-only
+        cookie
       parameters:
       - description: User's info
         in: body
@@ -267,6 +181,120 @@ paths:
       summary: Get user info
       tags:
       - Users
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Checks password and returns access and refresh tokens
+      parameters:
+      - description: User's login data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/server.RequestLogin'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logined successfully
+          headers:
+            Set-Cookie:
+              description: HTTP-only cookie named refresh_token
+              type: string
+          schema:
+            $ref: '#/definitions/server.ResponseToken'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "401":
+          description: Invalid password
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Login user
+      tags:
+      - Auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Checks refresh token from an HTTP-only cookie and returns new access
+        and refresh tokens
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Refreshed tokens successfully
+          headers:
+            Set-Cookie:
+              description: HTTP-only cookie named refresh_token
+              type: string
+          schema:
+            $ref: '#/definitions/server.ResponseToken'
+        "401":
+          description: Invalid refresh token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Refresh tokens
+      tags:
+      - Auth
+  /auth/revoke:
+    post:
+      consumes:
+      - application/json
+      description: Revokes refresh token from an HTTP-only cookie
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: No refresh token in cookie
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Revoke token
+      tags:
+      - Auth
+  /auth/whoami:
+    get:
+      consumes:
+      - application/json
+      description: Gets user ID. Uses access token from an HTTP-only cookie
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User ID
+          schema:
+            $ref: '#/definitions/server.ResponseUserID'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Get user
+      tags:
+      - Auth
   /ping:
     get:
       consumes:

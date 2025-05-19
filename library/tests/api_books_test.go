@@ -43,9 +43,9 @@ func AddBooksDB(db *sql.DB, books []Book) {
 	}
 }
 
-func AddBookAuthorsDB(db *sql.DB, bookId string, authors []string) {
+func AddBookAuthorsDB(db *sql.DB, bookID string, authors []string) {
 	_, err := db.Exec(
-		insertBookAuthors, bookId, pq.Array(authors))
+		insertBookAuthors, bookID, pq.Array(authors))
 	if err != nil {
 		log.Print("Failed to add book author to db: ", err)
 	}
@@ -139,8 +139,8 @@ func TestCreateBook_SeveralAuthors(t *testing.T) {
 	s := setupTestServer(db)
 	defer s.Close()
 
-	unknownAuthorId := uuid.New()
-	requestBook := server.RequestBook{Title: "The Twelve Chairs", Authors: []string{author1.id.String(), author2.id.String(), unknownAuthorId.String()}}
+	unknownAuthorID := uuid.New()
+	requestBook := server.RequestBook{Title: "The Twelve Chairs", Authors: []string{author1.id.String(), author2.id.String(), unknownAuthorID.String()}}
 	body, _ := json.Marshal(requestBook)
 
 	response, err := http.Post(s.URL+server.ApiBooksPath, "application/json", bytes.NewBuffer(body))
@@ -219,7 +219,7 @@ func TestUpdateBook_Success(t *testing.T) {
 	s := setupTestServer(db)
 	defer s.Close()
 
-	requestBook := server.RequestBookWithID{Id: book.id.String(), Title: "The Captain's Daughter", Authors: []string{authors[0].id.String()}}
+	requestBook := server.RequestBookWithID{ID: book.id.String(), Title: "The Captain's Daughter", Authors: []string{authors[0].id.String()}}
 	body, _ := json.Marshal(requestBook)
 
 	client := &http.Client{}
@@ -260,7 +260,7 @@ func TestUpdateBook_MergeAuthors(t *testing.T) {
 	defer s.Close()
 
 	newAuthors := []string{authors[0].id.String(), authors[2].id.String(), uuid.New().String()}
-	requestBook := server.RequestBookWithID{Id: book.id.String(), Title: "The Captain's Daughter", Authors: newAuthors}
+	requestBook := server.RequestBookWithID{ID: book.id.String(), Title: "The Captain's Daughter", Authors: newAuthors}
 	body, _ := json.Marshal(requestBook)
 
 	client := &http.Client{}
@@ -291,7 +291,7 @@ func TestUpdateBook_UnknownBook(t *testing.T) {
 	s := setupTestServer(db)
 	defer s.Close()
 
-	requestBook := server.RequestBookWithID{Id: uuid.New().String(), Title: "The Captain's Daughter", Authors: []string{}}
+	requestBook := server.RequestBookWithID{ID: uuid.New().String(), Title: "The Captain's Daughter", Authors: []string{}}
 	body, _ := json.Marshal(requestBook)
 
 	client := &http.Client{}
@@ -313,7 +313,7 @@ func TestUpdateBook_BadRequest(t *testing.T) {
 	s := setupTestServer(db)
 	defer s.Close()
 
-	requestBook := server.RequestBookWithID{Id: "invalid_id", Title: "The Captain's Daughter", Authors: []string{}}
+	requestBook := server.RequestBookWithID{ID: "invalid_id", Title: "The Captain's Daughter", Authors: []string{}}
 	body, _ := json.Marshal(requestBook)
 
 	client := &http.Client{}
@@ -359,7 +359,7 @@ func TestDeleteBook_Success(t *testing.T) {
 	assert.Equal(t, len(dbAuthors), 0)
 }
 
-func TestDeleteBook_InvalidId(t *testing.T) {
+func TestDeleteBook_InvalidID(t *testing.T) {
 	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
@@ -378,7 +378,7 @@ func TestDeleteBook_InvalidId(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 }
 
-func TestDeleteBook_UnknownId(t *testing.T) {
+func TestDeleteBook_UnknownID(t *testing.T) {
 	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
