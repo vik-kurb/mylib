@@ -51,7 +51,7 @@ func AddBookAuthorsDB(db *sql.DB, bookID string, authors []string) {
 	}
 }
 
-func GetDbBooks(t *testing.T, db *sql.DB) []Book {
+func GetDBBooks(t *testing.T, db *sql.DB) []Book {
 	rows, err := db.Query(selectBooks)
 	if err != nil {
 		t.Fatalf("Error while selecting books: %v", err)
@@ -74,7 +74,7 @@ func GetDbBooks(t *testing.T, db *sql.DB) []Book {
 	return books
 }
 
-func GetDbBookAuthors(t *testing.T, db *sql.DB, book_id uuid.UUID) []uuid.UUID {
+func GetDBBookAuthors(t *testing.T, db *sql.DB, book_id uuid.UUID) []uuid.UUID {
 	rows, err := db.Query(selectBookAuthors, book_id)
 	if err != nil {
 		t.Fatalf("Error while selecting book authors: %v", err)
@@ -97,304 +97,230 @@ func GetDbBookAuthors(t *testing.T, db *sql.DB, book_id uuid.UUID) []uuid.UUID {
 	return authors
 }
 
-func TestCreateBook_Success(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-
-	author := Author{id: uuid.New(), fullName: "Leo Tolstoy"}
-	AddAuthorsDB(db, []Author{author})
-
-	s := setupTestServer(db)
-	defer s.Close()
-
-	requestBook := server.RequestBook{Title: "War and Peace", Authors: []string{author.id.String()}}
-	body, _ := json.Marshal(requestBook)
-
-	response, err := http.Post(s.URL+server.ApiBooksPath, "application/json", bytes.NewBuffer(body))
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusCreated, response.StatusCode)
-
-	books := GetDbBooks(t, db)
-	assert.Equal(t, len(books), 1)
-	assert.Equal(t, books[0].title, requestBook.Title)
-
-	authors := GetDbBookAuthors(t, db, books[0].id)
-	assert.Equal(t, len(authors), 1)
-	assert.Equal(t, authors[0], author.id)
-}
-
-func TestCreateBook_SeveralAuthors(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-
-	author1 := Author{id: uuid.New(), fullName: "Ilya Ilf"}
-	author2 := Author{id: uuid.New(), fullName: "Yevgeny Petrov"}
-	AddAuthorsDB(db, []Author{author1, author2})
-
-	s := setupTestServer(db)
-	defer s.Close()
-
-	unknownAuthorID := uuid.New()
-	requestBook := server.RequestBook{Title: "The Twelve Chairs", Authors: []string{author1.id.String(), author2.id.String(), unknownAuthorID.String()}}
-	body, _ := json.Marshal(requestBook)
-
-	response, err := http.Post(s.URL+server.ApiBooksPath, "application/json", bytes.NewBuffer(body))
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusCreated, response.StatusCode)
-
-	books := GetDbBooks(t, db)
-	assert.Equal(t, len(books), 1)
-	assert.Equal(t, books[0].title, requestBook.Title)
-
-	authors := GetDbBookAuthors(t, db, books[0].id)
-	assert.Equal(t, len(authors), 2)
-	assert.Equal(t, authors[0], author1.id)
-	assert.Equal(t, authors[1], author2.id)
-}
-
-func TestCreateBook_NoAuthors(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-
-	s := setupTestServer(db)
-	defer s.Close()
-
-	requestBook := server.RequestBook{Title: "The Twelve Chairs"}
-	body, _ := json.Marshal(requestBook)
-
-	response, err := http.Post(s.URL+server.ApiBooksPath, "application/json", bytes.NewBuffer(body))
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusCreated, response.StatusCode)
-
-	books := GetDbBooks(t, db)
-	assert.Equal(t, len(books), 1)
-	assert.Equal(t, books[0].title, requestBook.Title)
-
-	authors := GetDbBookAuthors(t, db, books[0].id)
-	assert.Equal(t, len(authors), 0)
-}
-
-func TestCreateBook_BadRequest(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-
-	s := setupTestServer(db)
-	defer s.Close()
-
-	requestBook := server.RequestBook{}
-	body, _ := json.Marshal(requestBook)
-
-	response, err := http.Post(s.URL+server.ApiBooksPath, "application/json", bytes.NewBuffer(body))
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
-}
-
-func TestUpdateBook_Success(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-
-	authors := []Author{
-		{id: uuid.New(), fullName: "Alexander Pushkin"},
-		{id: uuid.New(), fullName: "Leo Tolstoy"},
+func TestCreateBook(t *testing.T) {
+	authorID1 := uuid.New()
+	authorID2 := uuid.New()
+	type testCase struct {
+		name                    string
+		dbAuthors               []Author
+		requestBook             server.RequestBook
+		expectedStatusCode      int
+		expectedDBBookTitle     string
+		expectedDBBookAuthorIDs []uuid.UUID
 	}
-	AddAuthorsDB(db, authors)
-	book := Book{id: uuid.New(), title: "War and Peace"}
-	AddBooksDB(db, []Book{book})
-	AddBookAuthorsDB(db, book.id.String(), []string{authors[1].id.String()})
-
-	s := setupTestServer(db)
-	defer s.Close()
-
-	requestBook := server.RequestBookWithID{ID: book.id.String(), Title: "The Captain's Daughter", Authors: []string{authors[0].id.String()}}
-	body, _ := json.Marshal(requestBook)
-
-	client := &http.Client{}
-	request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", s.URL, server.ApiBooksPath), bytes.NewBuffer(body))
-	assert.NoError(t, err)
-
-	response, err := client.Do(request)
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusOK, response.StatusCode)
-
-	books := GetDbBooks(t, db)
-	assert.Equal(t, len(books), 1)
-	assert.Equal(t, books[0].title, requestBook.Title)
-
-	dbAuthors := GetDbBookAuthors(t, db, books[0].id)
-	assert.Equal(t, len(dbAuthors), 1)
-	assert.Equal(t, dbAuthors[0].String(), requestBook.Authors[0])
-}
-
-func TestUpdateBook_MergeAuthors(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-
-	authors := []Author{
-		{id: uuid.New(), fullName: "Alexander Pushkin"},
-		{id: uuid.New(), fullName: "Leo Tolstoy"},
-		{id: uuid.New(), fullName: "Fyodor Dostoevsky"},
+	tests := []testCase{
+		{
+			name:                    "success",
+			dbAuthors:               []Author{{id: authorID1, fullName: "Leo Tolstoy"}},
+			requestBook:             server.RequestBook{Title: "War and Peace", Authors: []string{authorID1.String()}},
+			expectedStatusCode:      http.StatusCreated,
+			expectedDBBookTitle:     "War and Peace",
+			expectedDBBookAuthorIDs: []uuid.UUID{authorID1},
+		},
+		{
+			name:                    "several_authors",
+			dbAuthors:               []Author{{id: authorID1, fullName: "Ilya Ilf"}, {id: authorID2, fullName: "Yevgeny Petrov"}},
+			requestBook:             server.RequestBook{Title: "The Twelve Chairs", Authors: []string{authorID1.String(), authorID2.String(), uuid.NewString()}},
+			expectedStatusCode:      http.StatusCreated,
+			expectedDBBookTitle:     "The Twelve Chairs",
+			expectedDBBookAuthorIDs: []uuid.UUID{authorID1, authorID2},
+		},
+		{
+			name:                    "no_authors",
+			dbAuthors:               nil,
+			requestBook:             server.RequestBook{Title: "War and Peace"},
+			expectedStatusCode:      http.StatusCreated,
+			expectedDBBookTitle:     "War and Peace",
+			expectedDBBookAuthorIDs: nil,
+		},
+		{
+			name:                    "bad_request",
+			dbAuthors:               []Author{},
+			requestBook:             server.RequestBook{},
+			expectedStatusCode:      http.StatusBadRequest,
+			expectedDBBookTitle:     "",
+			expectedDBBookAuthorIDs: nil,
+		},
 	}
-	AddAuthorsDB(db, authors)
-	book := Book{id: uuid.New(), title: "War and Peace"}
-	AddBooksDB(db, []Book{book})
-	AddBookAuthorsDB(db, book.id.String(), []string{authors[0].id.String(), authors[1].id.String()})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db, err := common.SetupDBByURL("../.env", "TEST_DB_URL")
+			assert.NoError(t, err)
+			defer common.CloseDB(db)
+			cleanupDB(db)
 
-	s := setupTestServer(db)
-	defer s.Close()
+			AddAuthorsDB(db, tc.dbAuthors)
 
-	newAuthors := []string{authors[0].id.String(), authors[2].id.String(), uuid.New().String()}
-	requestBook := server.RequestBookWithID{ID: book.id.String(), Title: "The Captain's Daughter", Authors: newAuthors}
-	body, _ := json.Marshal(requestBook)
+			s := setupTestServer(db)
+			defer s.Close()
 
-	client := &http.Client{}
-	request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", s.URL, server.ApiBooksPath), bytes.NewBuffer(body))
-	assert.NoError(t, err)
+			body, _ := json.Marshal(tc.requestBook)
+			response, err := http.Post(s.URL+server.ApiBooksPath, "application/json", bytes.NewBuffer(body))
+			assert.NoError(t, err)
+			defer common.CloseResponseBody(response)
+			assert.Equal(t, tc.expectedStatusCode, response.StatusCode)
 
-	response, err := client.Do(request)
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusOK, response.StatusCode)
-
-	books := GetDbBooks(t, db)
-	assert.Equal(t, len(books), 1)
-	assert.Equal(t, books[0].title, requestBook.Title)
-
-	dbAuthors := GetDbBookAuthors(t, db, books[0].id)
-	assert.Equal(t, len(dbAuthors), 2)
-	assert.Equal(t, dbAuthors[0].String(), requestBook.Authors[0])
-	assert.Equal(t, dbAuthors[1].String(), requestBook.Authors[1])
-}
-
-func TestUpdateBook_UnknownBook(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-
-	s := setupTestServer(db)
-	defer s.Close()
-
-	requestBook := server.RequestBookWithID{ID: uuid.New().String(), Title: "The Captain's Daughter", Authors: []string{}}
-	body, _ := json.Marshal(requestBook)
-
-	client := &http.Client{}
-	request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", s.URL, server.ApiBooksPath), bytes.NewBuffer(body))
-	assert.NoError(t, err)
-
-	response, err := client.Do(request)
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusNotFound, response.StatusCode)
-}
-
-func TestUpdateBook_BadRequest(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-
-	s := setupTestServer(db)
-	defer s.Close()
-
-	requestBook := server.RequestBookWithID{ID: "invalid_id", Title: "The Captain's Daughter", Authors: []string{}}
-	body, _ := json.Marshal(requestBook)
-
-	client := &http.Client{}
-	request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", s.URL, server.ApiBooksPath), bytes.NewBuffer(body))
-	assert.NoError(t, err)
-
-	response, err := client.Do(request)
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
-}
-
-func TestDeleteBook_Success(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
-	authors := []Author{
-		{id: uuid.New(), fullName: "Alexander Pushkin"},
-		{id: uuid.New(), fullName: "Leo Tolstoy"},
+			if tc.expectedDBBookTitle != "" {
+				books := GetDBBooks(t, db)
+				assert.Equal(t, len(books), 1)
+				assert.Equal(t, books[0].title, tc.expectedDBBookTitle)
+				authors := GetDBBookAuthors(t, db, books[0].id)
+				assert.ElementsMatch(t, authors, tc.expectedDBBookAuthorIDs)
+			}
+		})
 	}
-	AddAuthorsDB(db, authors)
-	book := Book{id: uuid.New(), title: "War and Peace"}
-	AddBooksDB(db, []Book{book})
-	AddBookAuthorsDB(db, book.id.String(), []string{authors[0].id.String(), authors[1].id.String()})
 
-	s := setupTestServer(db)
-	defer s.Close()
-
-	client := &http.Client{}
-	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminBooksPath, book.id), nil)
-	assert.NoError(t, err)
-
-	response, err := client.Do(request)
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusOK, response.StatusCode)
-
-	books := GetDbBooks(t, db)
-	assert.Equal(t, len(books), 0)
-
-	dbAuthors := GetDbBookAuthors(t, db, book.id)
-	assert.Equal(t, len(dbAuthors), 0)
 }
 
-func TestDeleteBook_InvalidID(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
+func TestUpdateBook(t *testing.T) {
+	authorID1 := uuid.New()
+	authorID2 := uuid.New()
+	authorID3 := uuid.New()
+	bookID1 := uuid.New()
+	type testCase struct {
+		name                    string
+		dbAuthors               []Author
+		dbBooks                 []Book
+		requestBook             server.RequestBookWithID
+		expectedStatusCode      int
+		expectedDBBookTitle     string
+		expectedDBBookAuthorIDs []uuid.UUID
+	}
+	tests := []testCase{
+		{
+			name:                    "success",
+			dbAuthors:               []Author{{id: authorID1, fullName: "Leo Tolstoy"}, {id: authorID2, fullName: "Alexander Pushkin"}},
+			dbBooks:                 []Book{{id: bookID1, title: "War and Peace"}},
+			requestBook:             server.RequestBookWithID{ID: bookID1.String(), Title: "The Captain's Daughter", Authors: []string{authorID2.String()}},
+			expectedStatusCode:      http.StatusOK,
+			expectedDBBookTitle:     "The Captain's Daughter",
+			expectedDBBookAuthorIDs: []uuid.UUID{authorID2},
+		},
+		{
+			name:                    "merge_authors",
+			dbAuthors:               []Author{{id: authorID1, fullName: "Leo Tolstoy"}, {id: authorID2, fullName: "Alexander Pushkin"}, {id: authorID3, fullName: "Fyodor Dostoevsky"}},
+			dbBooks:                 []Book{{id: bookID1, title: "War and Peace"}},
+			requestBook:             server.RequestBookWithID{ID: bookID1.String(), Title: "The Captain's Daughter", Authors: []string{authorID2.String(), authorID3.String(), uuid.NewString()}},
+			expectedStatusCode:      http.StatusOK,
+			expectedDBBookTitle:     "The Captain's Daughter",
+			expectedDBBookAuthorIDs: []uuid.UUID{authorID2, authorID3},
+		},
+		{
+			name:                    "unknown_book",
+			dbAuthors:               []Author{{id: authorID1, fullName: "Leo Tolstoy"}},
+			dbBooks:                 []Book{{id: bookID1, title: "War and Peace"}},
+			requestBook:             server.RequestBookWithID{ID: uuid.NewString(), Title: "The Captain's Daughter", Authors: []string{authorID1.String()}},
+			expectedStatusCode:      http.StatusNotFound,
+			expectedDBBookTitle:     "",
+			expectedDBBookAuthorIDs: nil,
+		},
+		{
+			name:                    "bad_request",
+			dbAuthors:               []Author{{id: authorID1, fullName: "Leo Tolstoy"}},
+			dbBooks:                 []Book{{id: bookID1, title: "War and Peace"}},
+			requestBook:             server.RequestBookWithID{ID: "invalid_id", Title: "The Captain's Daughter", Authors: []string{authorID2.String()}},
+			expectedStatusCode:      http.StatusBadRequest,
+			expectedDBBookTitle:     "",
+			expectedDBBookAuthorIDs: nil,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db, err := common.SetupDBByURL("../.env", "TEST_DB_URL")
+			assert.NoError(t, err)
+			defer common.CloseDB(db)
+			cleanupDB(db)
 
-	s := setupTestServer(db)
-	defer s.Close()
+			AddAuthorsDB(db, tc.dbAuthors)
+			AddBooksDB(db, tc.dbBooks)
 
-	client := &http.Client{}
-	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminBooksPath, "invalid_id"), nil)
-	assert.NoError(t, err)
+			s := setupTestServer(db)
+			defer s.Close()
 
-	response, err := client.Do(request)
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+			client := &http.Client{}
+			body, _ := json.Marshal(tc.requestBook)
+			request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", s.URL, server.ApiBooksPath), bytes.NewBuffer(body))
+			assert.NoError(t, err)
+
+			response, err := client.Do(request)
+			assert.NoError(t, err)
+			defer common.CloseResponseBody(response)
+			assert.Equal(t, tc.expectedStatusCode, response.StatusCode)
+
+			if tc.expectedDBBookTitle != "" {
+				books := GetDBBooks(t, db)
+				assert.Equal(t, len(books), 1)
+				assert.Equal(t, books[0].title, tc.expectedDBBookTitle)
+				authors := GetDBBookAuthors(t, db, books[0].id)
+				assert.ElementsMatch(t, authors, tc.expectedDBBookAuthorIDs)
+			}
+		})
+	}
+
 }
 
-func TestDeleteBook_UnknownID(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
-	assert.NoError(t, err)
-	defer common.CloseDB(db)
-	cleanupDB(db)
+func TestDeleteBook(t *testing.T) {
+	bookID1 := uuid.New()
+	authorID1 := uuid.New()
+	type testCase struct {
+		name               string
+		dbAuthors          []Author
+		dbBooks            []Book
+		requestBook        string
+		expectedStatusCode int
+	}
+	tests := []testCase{
+		{
+			name:               "success",
+			dbAuthors:          []Author{{id: authorID1, fullName: "Leo Tolstoy"}},
+			dbBooks:            []Book{{id: bookID1, title: "War and Peace"}},
+			requestBook:        bookID1.String(),
+			expectedStatusCode: http.StatusNoContent,
+		},
+		{
+			name:               "bad_request",
+			dbAuthors:          []Author{{id: authorID1, fullName: "Leo Tolstoy"}},
+			dbBooks:            []Book{{id: bookID1, title: "War and Peace"}},
+			requestBook:        "invalid_id",
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:               "unknown_id",
+			dbAuthors:          nil,
+			dbBooks:            nil,
+			requestBook:        uuid.NewString(),
+			expectedStatusCode: http.StatusNoContent,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db, err := common.SetupDBByURL("../.env", "TEST_DB_URL")
+			assert.NoError(t, err)
+			defer common.CloseDB(db)
+			cleanupDB(db)
 
-	s := setupTestServer(db)
-	defer s.Close()
+			AddAuthorsDB(db, tc.dbAuthors)
+			AddBooksDB(db, tc.dbBooks)
 
-	client := &http.Client{}
-	request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminBooksPath, uuid.New()), nil)
-	assert.NoError(t, err)
+			s := setupTestServer(db)
+			defer s.Close()
 
-	response, err := client.Do(request)
-	assert.NoError(t, err)
-	defer common.CloseResponseBody(response)
-	assert.Equal(t, http.StatusOK, response.StatusCode)
+			client := &http.Client{}
+			request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminBooksPath, tc.requestBook), nil)
+			assert.NoError(t, err)
+
+			response, err := client.Do(request)
+			assert.NoError(t, err)
+			defer common.CloseResponseBody(response)
+			assert.Equal(t, tc.expectedStatusCode, response.StatusCode)
+
+			if tc.expectedStatusCode == http.StatusNoContent {
+				books := GetDBBooks(t, db)
+				assert.Equal(t, len(books), 0)
+			}
+		})
+	}
+
 }
 
 func TestGetBooks(t *testing.T) {
@@ -449,7 +375,7 @@ func TestGetBooks(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
+			db, err := common.SetupDBByURL("../.env", "TEST_DB_URL")
 			assert.NoError(t, err)
 			defer common.CloseDB(db)
 			cleanupDB(db)

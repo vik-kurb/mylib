@@ -61,7 +61,7 @@ func setupTestServer(db *sql.DB) *httptest.Server {
 	return httptest.NewServer(sm)
 }
 
-func getDbToken(db *sql.DB, token string) *RefreshToken {
+func getDBToken(db *sql.DB, token string) *RefreshToken {
 	row := db.QueryRow(selectRefreshToken, token)
 	dbToken := RefreshToken{}
 	err := row.Scan(&dbToken.userID, &dbToken.expiresAt, &dbToken.revokedAt)

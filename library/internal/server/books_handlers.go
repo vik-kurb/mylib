@@ -239,7 +239,7 @@ func (cfg *ApiConfig) HandleDeleteAdminBooks(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func parseBookIDs(r *http.Request) ([]uuid.UUID, error) {

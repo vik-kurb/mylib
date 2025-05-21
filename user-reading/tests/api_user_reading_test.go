@@ -69,11 +69,11 @@ func mockLibraryServer(t *testing.T, data libraryServiceData) *httptest.Server {
 
 func setupTestServers(t *testing.T, db *sql.DB, usersData usersServiceData, libraryData libraryServiceData) (*httptest.Server, *httptest.Server, *httptest.Server) {
 	usersServer := mockUsersServer(t, usersData)
-	usersUrl, _ := url.Parse(usersServer.URL)
+	usersURL, _ := url.Parse(usersServer.URL)
 	libraryServer := mockLibraryServer(t, libraryData)
-	libraryUrl, _ := url.Parse(libraryServer.URL)
+	libraryURL, _ := url.Parse(libraryServer.URL)
 
-	apiCfg := server.ApiConfig{DB: db, UsersServiceHost: usersUrl.String(), LibraryServiceHost: libraryUrl.String()}
+	apiCfg := server.ApiConfig{DB: db, UsersServiceHost: usersURL.String(), LibraryServiceHost: libraryURL.String()}
 	sm := http.NewServeMux()
 	server.Handle(sm, &apiCfg)
 	return httptest.NewServer(sm), usersServer, libraryServer
@@ -121,7 +121,7 @@ func addDBUserReading(db *sql.DB, userID string, userReadings []server.UserReadi
 }
 
 func TestPing_Success(t *testing.T) {
-	db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
+	db, err := common.SetupDBByURL("../.env", "TEST_DB_URL")
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 
@@ -194,7 +194,7 @@ func TestCreateUserReading(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
+			db, err := common.SetupDBByURL("../.env", "TEST_DB_URL")
 			assert.NoError(t, err)
 			defer common.CloseDB(db)
 			cleanupDB(db)
@@ -295,7 +295,7 @@ func TestUpdateUserReading(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
+			db, err := common.SetupDBByURL("../.env", "TEST_DB_URL")
 			assert.NoError(t, err)
 			defer common.CloseDB(db)
 			cleanupDB(db)
@@ -375,7 +375,7 @@ func TestDeleteUserReading(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
+			db, err := common.SetupDBByURL("../.env", "TEST_DB_URL")
 			assert.NoError(t, err)
 			defer common.CloseDB(db)
 			cleanupDB(db)
@@ -407,7 +407,6 @@ func TestGetUserReading(t *testing.T) {
 	userID := uuid.New()
 	book1 := uuid.New()
 	book2 := uuid.New()
-	// book3 := uuid.New()
 
 	type testCase struct {
 		name               string
@@ -467,7 +466,7 @@ func TestGetUserReading(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db, err := common.SetupDBByUrl("../.env", "TEST_DB_URL")
+			db, err := common.SetupDBByURL("../.env", "TEST_DB_URL")
 			assert.NoError(t, err)
 			defer common.CloseDB(db)
 			cleanupDB(db)
