@@ -102,7 +102,7 @@ func TestCreateBook(t *testing.T) {
 	authorID2 := uuid.New()
 	type testCase struct {
 		name                    string
-		dbAuthors               []Author
+		dbAuthors               []author
 		requestBook             server.RequestBook
 		expectedStatusCode      int
 		expectedDBBookTitle     string
@@ -111,7 +111,7 @@ func TestCreateBook(t *testing.T) {
 	tests := []testCase{
 		{
 			name:                    "success",
-			dbAuthors:               []Author{{id: authorID1, fullName: "Leo Tolstoy"}},
+			dbAuthors:               []author{{id: authorID1, fullName: "Leo Tolstoy"}},
 			requestBook:             server.RequestBook{Title: "War and Peace", Authors: []string{authorID1.String()}},
 			expectedStatusCode:      http.StatusCreated,
 			expectedDBBookTitle:     "War and Peace",
@@ -119,7 +119,7 @@ func TestCreateBook(t *testing.T) {
 		},
 		{
 			name:                    "several_authors",
-			dbAuthors:               []Author{{id: authorID1, fullName: "Ilya Ilf"}, {id: authorID2, fullName: "Yevgeny Petrov"}},
+			dbAuthors:               []author{{id: authorID1, fullName: "Ilya Ilf"}, {id: authorID2, fullName: "Yevgeny Petrov"}},
 			requestBook:             server.RequestBook{Title: "The Twelve Chairs", Authors: []string{authorID1.String(), authorID2.String(), uuid.NewString()}},
 			expectedStatusCode:      http.StatusCreated,
 			expectedDBBookTitle:     "The Twelve Chairs",
@@ -135,7 +135,7 @@ func TestCreateBook(t *testing.T) {
 		},
 		{
 			name:                    "bad_request",
-			dbAuthors:               []Author{},
+			dbAuthors:               []author{},
 			requestBook:             server.RequestBook{},
 			expectedStatusCode:      http.StatusBadRequest,
 			expectedDBBookTitle:     "",
@@ -179,7 +179,7 @@ func TestUpdateBook(t *testing.T) {
 	bookID1 := uuid.New()
 	type testCase struct {
 		name                    string
-		dbAuthors               []Author
+		dbAuthors               []author
 		dbBooks                 []Book
 		requestBook             server.RequestBookWithID
 		expectedStatusCode      int
@@ -189,7 +189,7 @@ func TestUpdateBook(t *testing.T) {
 	tests := []testCase{
 		{
 			name:                    "success",
-			dbAuthors:               []Author{{id: authorID1, fullName: "Leo Tolstoy"}, {id: authorID2, fullName: "Alexander Pushkin"}},
+			dbAuthors:               []author{{id: authorID1, fullName: "Leo Tolstoy"}, {id: authorID2, fullName: "Alexander Pushkin"}},
 			dbBooks:                 []Book{{id: bookID1, title: "War and Peace"}},
 			requestBook:             server.RequestBookWithID{ID: bookID1.String(), Title: "The Captain's Daughter", Authors: []string{authorID2.String()}},
 			expectedStatusCode:      http.StatusOK,
@@ -198,7 +198,7 @@ func TestUpdateBook(t *testing.T) {
 		},
 		{
 			name:                    "merge_authors",
-			dbAuthors:               []Author{{id: authorID1, fullName: "Leo Tolstoy"}, {id: authorID2, fullName: "Alexander Pushkin"}, {id: authorID3, fullName: "Fyodor Dostoevsky"}},
+			dbAuthors:               []author{{id: authorID1, fullName: "Leo Tolstoy"}, {id: authorID2, fullName: "Alexander Pushkin"}, {id: authorID3, fullName: "Fyodor Dostoevsky"}},
 			dbBooks:                 []Book{{id: bookID1, title: "War and Peace"}},
 			requestBook:             server.RequestBookWithID{ID: bookID1.String(), Title: "The Captain's Daughter", Authors: []string{authorID2.String(), authorID3.String(), uuid.NewString()}},
 			expectedStatusCode:      http.StatusOK,
@@ -207,7 +207,7 @@ func TestUpdateBook(t *testing.T) {
 		},
 		{
 			name:                    "unknown_book",
-			dbAuthors:               []Author{{id: authorID1, fullName: "Leo Tolstoy"}},
+			dbAuthors:               []author{{id: authorID1, fullName: "Leo Tolstoy"}},
 			dbBooks:                 []Book{{id: bookID1, title: "War and Peace"}},
 			requestBook:             server.RequestBookWithID{ID: uuid.NewString(), Title: "The Captain's Daughter", Authors: []string{authorID1.String()}},
 			expectedStatusCode:      http.StatusNotFound,
@@ -216,7 +216,7 @@ func TestUpdateBook(t *testing.T) {
 		},
 		{
 			name:                    "bad_request",
-			dbAuthors:               []Author{{id: authorID1, fullName: "Leo Tolstoy"}},
+			dbAuthors:               []author{{id: authorID1, fullName: "Leo Tolstoy"}},
 			dbBooks:                 []Book{{id: bookID1, title: "War and Peace"}},
 			requestBook:             server.RequestBookWithID{ID: "invalid_id", Title: "The Captain's Daughter", Authors: []string{authorID2.String()}},
 			expectedStatusCode:      http.StatusBadRequest,
@@ -264,7 +264,7 @@ func TestDeleteBook(t *testing.T) {
 	authorID1 := uuid.New()
 	type testCase struct {
 		name               string
-		dbAuthors          []Author
+		dbAuthors          []author
 		dbBooks            []Book
 		requestBook        string
 		expectedStatusCode int
@@ -272,14 +272,14 @@ func TestDeleteBook(t *testing.T) {
 	tests := []testCase{
 		{
 			name:               "success",
-			dbAuthors:          []Author{{id: authorID1, fullName: "Leo Tolstoy"}},
+			dbAuthors:          []author{{id: authorID1, fullName: "Leo Tolstoy"}},
 			dbBooks:            []Book{{id: bookID1, title: "War and Peace"}},
 			requestBook:        bookID1.String(),
 			expectedStatusCode: http.StatusNoContent,
 		},
 		{
 			name:               "bad_request",
-			dbAuthors:          []Author{{id: authorID1, fullName: "Leo Tolstoy"}},
+			dbAuthors:          []author{{id: authorID1, fullName: "Leo Tolstoy"}},
 			dbBooks:            []Book{{id: bookID1, title: "War and Peace"}},
 			requestBook:        "invalid_id",
 			expectedStatusCode: http.StatusBadRequest,
@@ -380,7 +380,7 @@ func TestGetBooks(t *testing.T) {
 			defer common.CloseDB(db)
 			cleanupDB(db)
 			AddBooksDB(db, []Book{{id: book1, title: "Title 1"}, {id: book2, title: "Title 2"}, {id: book3, title: "Title 3"}})
-			AddAuthorsDB(db, []Author{{id: author1, fullName: "Author 1"}, {id: author2, fullName: "Author 2"}})
+			AddAuthorsDB(db, []author{{id: author1, fullName: "Author 1"}, {id: author2, fullName: "Author 2"}})
 			AddBookAuthorsDB(db, book1.String(), []string{author1.String()})
 			AddBookAuthorsDB(db, book2.String(), []string{author1.String(), author2.String()})
 

@@ -157,7 +157,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/server.RequestAuthor"
+                            "$ref": "#/definitions/server.RequestAuthorWithID"
                         }
                     }
                 ],
@@ -524,6 +524,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "full_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "server.RequestAuthorWithID": {
+            "type": "object",
+            "properties": {
+                "birth_date": {
+                    "type": "string"
+                },
+                "death_date": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "id": {
                     "type": "string"
                 }
             }

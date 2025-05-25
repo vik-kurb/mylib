@@ -14,6 +14,17 @@ definitions:
       full_name:
         type: string
     type: object
+  server.RequestAuthorWithID:
+    properties:
+      birth_date:
+        type: string
+      death_date:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+    type: object
   server.RequestBook:
     properties:
       authors:
@@ -203,7 +214,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/server.RequestAuthor'
+          $ref: '#/definitions/server.RequestAuthorWithID'
       produces:
       - application/json
       responses:

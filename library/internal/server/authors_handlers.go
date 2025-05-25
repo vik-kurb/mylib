@@ -164,7 +164,7 @@ func (cfg *ApiConfig) HandleDeleteAdminAuthors(w http.ResponseWriter, r *http.Re
 // @Tags Authors
 // @Accept json
 // @Produce json
-// @Param request body RequestAuthor true "Author's info"
+// @Param request body RequestAuthorWithID true "Author's info"
 // @Success 200 {string} string "Updated successfully"
 // @Failure 400 {object} ErrorResponse "Invalid request body or empty full_name"
 // @Failure 404 {object} ErrorResponse "Author not found"
