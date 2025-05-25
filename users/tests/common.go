@@ -25,8 +25,6 @@ type User struct {
 	email          string
 	birthDate      sql.NullTime
 	hashedPassword string
-	createdAt      time.Time
-	updatedAt      time.Time
 }
 
 type RefreshToken struct {
