@@ -3,7 +3,7 @@ module github.com/bakurvik/mylib/library
 go 1.23.6
 
 require (
-	github.com/bakurvik/mylib-common v0.1.3
+	github.com/bakurvik/mylib-common v0.1.4
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.10.9
 	github.com/stretchr/testify v1.10.0
