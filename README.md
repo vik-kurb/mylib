@@ -34,6 +34,7 @@ Environment variables should be set in .env:
 | `DB_USER`     | Database user                            | `postgres`                                                         |
 | `DB_PASSWORD` | Database user password                   | `postgres`                                                         |
 | `TEST_DB_URL` | Connection URL for test database (local) | `postgres://postgres:@localhost:5432/test_library?sslmode=disable` |
+| `MAX_SEARCH_BOOKS_LIMIT` | Maximum number of books found in search  | `10` |
 
 
 ## users

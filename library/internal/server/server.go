@@ -18,7 +18,8 @@ const (
 )
 
 type ApiConfig struct {
-	DB *sql.DB
+	DB                  *sql.DB
+	MaxSearchBooksLimit int
 }
 
 func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {

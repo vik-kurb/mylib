@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 
 	common "github.com/bakurvik/mylib-common"
 	"github.com/bakurvik/mylib/library/internal/server"
@@ -22,6 +24,10 @@ import (
 // @host localhost:8080
 // @BasePath /
 
+const (
+	defaultMaxSearchBooksLimit = 10
+)
+
 func main() {
 	db, err := common.SetupDB("./.env")
 	if err != nil {
@@ -29,7 +35,12 @@ func main() {
 	}
 
 	sm := http.NewServeMux()
-	apiCfg := server.ApiConfig{DB: db}
+	maxSearchBooksLimit, err := strconv.Atoi(os.Getenv("MAX_SEARCH_BOOKS_LIMIT"))
+	if err != nil {
+		log.Print("Imvalid MAX_SEARCH_BOOKS_LIMIT value: ", os.Getenv("MAX_SEARCH_BOOKS_LIMIT"))
+		maxSearchBooksLimit = defaultMaxSearchBooksLimit
+	}
+	apiCfg := server.ApiConfig{DB: db, MaxSearchBooksLimit: maxSearchBooksLimit}
 	server.Handle(sm, &apiCfg)
 
 	s := http.Server{
