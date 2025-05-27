@@ -417,17 +417,41 @@ func (cfg *ApiConfig) HandleGetApiAuthorsSearch(w http.ResponseWriter, r *http.R
 		common.RespondWithError(w, http.StatusBadRequest, "Empty search text")
 	}
 
-	queries := database.New(cfg.DB)
+	tx, err := cfg.DB.BeginTx(r.Context(), nil)
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
+		return
+	}
+	defer handleTx(tx, &err, w)
+
+	queries := database.New(tx)
 	books, dbErr := queries.SearchBooks(r.Context(), database.SearchBooksParams{PlaintoTsquery: searchText, Limit: int32(cfg.MaxSearchBooksLimit)})
 	if dbErr != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return
 	}
-	//TODO: get book authors and add to response
+	bookIDs := make([]uuid.UUID, 0, len(books))
+	for _, book := range books {
+		bookIDs = append(bookIDs, book.ID)
+	}
+
+	bookAuthors, dbErr := queries.GetAuthorsNamesByBooks(r.Context(), bookIDs)
+	if dbErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
+		return
+	}
+	bookToAuthors := make(map[uuid.UUID][]string)
+	for _, bookAuthor := range bookAuthors {
+		bookToAuthors[bookAuthor.BookID] = append(bookToAuthors[bookAuthor.BookID], bookAuthor.FullName)
+	}
 
 	responseAuthors := make([]ResponseBookFullInfo, 0, len(books))
 	for _, book := range books {
-		responseAuthors = append(responseAuthors, ResponseBookFullInfo{ID: book.ID.String(), Title: book.Title})
+		responseBook := ResponseBookFullInfo{ID: book.ID.String(), Title: book.Title}
+		if authors, ok := bookToAuthors[book.ID]; ok {
+			responseBook.Authors = authors
+		}
+		responseAuthors = append(responseAuthors, responseBook)
 	}
 	common.RespondWithJSON(w, http.StatusOK, responseAuthors, nil)
 }
