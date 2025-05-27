@@ -25,6 +25,7 @@ type Book struct {
 	Title     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	Tsv       interface{}
 }
 
 type BookAuthor struct {

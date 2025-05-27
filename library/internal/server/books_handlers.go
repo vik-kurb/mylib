@@ -396,3 +396,38 @@ func (cfg *ApiConfig) HandlePostApiBooksSearch(w http.ResponseWriter, r *http.Re
 
 	common.RespondWithJSON(w, http.StatusOK, response, nil)
 }
+
+// @Summary Search books by title
+// @Description Searches books by title. Uses postgres full text search
+// @Tags Books
+// @Accept json
+// @Produce json
+// @Param text query string true "Search text"
+// @Success 200 {array} ResponseBookFullInfo "Books' full info"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/books/search [get]
+func (cfg *ApiConfig) HandleGetApiAuthorsSearch(w http.ResponseWriter, r *http.Request) {
+	if cfg.DB == nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
+		return
+	}
+
+	searchText := r.URL.Query().Get("text")
+	if searchText == "" {
+		common.RespondWithError(w, http.StatusBadRequest, "Empty search text")
+	}
+
+	queries := database.New(cfg.DB)
+	books, dbErr := queries.SearchBooks(r.Context(), database.SearchBooksParams{PlaintoTsquery: searchText, Limit: int32(cfg.MaxSearchBooksLimit)})
+	if dbErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
+		return
+	}
+	//TODO: get book authors and add to response
+
+	responseAuthors := make([]ResponseBookFullInfo, 0, len(books))
+	for _, book := range books {
+		responseAuthors = append(responseAuthors, ResponseBookFullInfo{ID: book.ID.String(), Title: book.Title})
+	}
+	common.RespondWithJSON(w, http.StatusOK, responseAuthors, nil)
+}

@@ -39,6 +39,7 @@ func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
 	sm.HandleFunc("PUT "+ApiBooksPath, apiCfg.HandlePutApiBooks)
 	sm.HandleFunc(fmt.Sprintf("DELETE %v/{id}", AdminBooksPath), apiCfg.HandleDeleteAdminBooks)
 	sm.HandleFunc("POST "+ApiBooksSearchPath, apiCfg.HandlePostApiBooksSearch)
+	sm.HandleFunc("GET "+ApiBooksSearchPath, apiCfg.HandleGetApiAuthorsSearch)
 
 	// Swagger
 	sm.Handle("/swagger/", httpSwagger.WrapHandler)
