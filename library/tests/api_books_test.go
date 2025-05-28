@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
@@ -394,6 +395,68 @@ func TestGetBooks(t *testing.T) {
 			assert.NoError(t, err)
 
 			response, err := client.Do(request)
+			assert.NoError(t, err)
+			defer common.CloseResponseBody(response)
+			assert.Equal(t, tc.expectedStatusCode, response.StatusCode)
+
+			if tc.expectedResponse != nil {
+				decoder := json.NewDecoder(response.Body)
+				responseBody := []server.ResponseBookFullInfo{}
+				err = decoder.Decode(&responseBody)
+				assert.NoError(t, err)
+
+				assert.ElementsMatch(t, responseBody, tc.expectedResponse)
+			}
+		})
+	}
+}
+
+func TestSearchBooks(t *testing.T) {
+	book1 := uuid.New()
+	book2 := uuid.New()
+	book3 := uuid.New()
+	author1 := uuid.New()
+	author2 := uuid.New()
+
+	type testCase struct {
+		name               string
+		requestedText      string
+		expectedStatusCode int
+		expectedResponse   []server.ResponseBookFullInfo
+	}
+
+	tests := []testCase{
+		{
+			name:               "success",
+			requestedText:      "great title",
+			expectedStatusCode: http.StatusOK,
+			expectedResponse: []server.ResponseBookFullInfo{
+				{ID: book3.String(), Title: "Great Title, great title", Authors: nil},
+				{ID: book1.String(), Title: "Great Title", Authors: []string{"Author 1"}}},
+		},
+		{
+			name:               "empty_search_text",
+			requestedText:      "",
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse:   nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db, err := common.SetupDBByURL("../.env", "TEST_DB_URL")
+			assert.NoError(t, err)
+			defer common.CloseDB(db)
+			cleanupDB(db)
+			AddBooksDB(db, []Book{{id: book1, title: "Great Title"}, {id: book2, title: "Another title"}, {id: book3, title: "Great Title, great title"}})
+			AddAuthorsDB(db, []author{{id: author1, fullName: "Author 1"}, {id: author2, fullName: "Author 2"}})
+			AddBookAuthorsDB(db, book1.String(), []string{author1.String()})
+			AddBookAuthorsDB(db, book2.String(), []string{author2.String(), author1.String()})
+
+			s := setupTestServer(db)
+			defer s.Close()
+
+			response, err := http.Get(s.URL + server.ApiBooksSearchPath + "?text=" + url.QueryEscape(tc.requestedText))
 			assert.NoError(t, err)
 			defer common.CloseResponseBody(response)
 			assert.Equal(t, tc.expectedStatusCode, response.StatusCode)

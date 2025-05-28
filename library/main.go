@@ -37,7 +37,7 @@ func main() {
 	sm := http.NewServeMux()
 	maxSearchBooksLimit, err := strconv.Atoi(os.Getenv("MAX_SEARCH_BOOKS_LIMIT"))
 	if err != nil {
-		log.Print("Imvalid MAX_SEARCH_BOOKS_LIMIT value: ", os.Getenv("MAX_SEARCH_BOOKS_LIMIT"))
+		log.Print("Invalid MAX_SEARCH_BOOKS_LIMIT value: ", os.Getenv("MAX_SEARCH_BOOKS_LIMIT"))
 		maxSearchBooksLimit = defaultMaxSearchBooksLimit
 	}
 	apiCfg := server.ApiConfig{DB: db, MaxSearchBooksLimit: maxSearchBooksLimit}

@@ -336,6 +336,9 @@ func getBooksAndAuthors(ctx context.Context, queries *database.Queries, bookUUID
 				res.bookToAuthors[bookAuthor.BookID] = append(res.bookToAuthors[bookAuthor.BookID], authorName)
 			}
 		}
+		for _, authors := range res.bookToAuthors {
+			sort.Strings(authors)
+		}
 		authorsChan <- res
 	}()
 	dbBooksInfo := <-booksChan
@@ -404,6 +407,7 @@ func (cfg *ApiConfig) HandlePostApiBooksSearch(w http.ResponseWriter, r *http.Re
 // @Produce json
 // @Param text query string true "Search text"
 // @Success 200 {array} ResponseBookFullInfo "Books' full info"
+// @Success 400 {object} ErrorResponse "Empty search text"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/books/search [get]
 func (cfg *ApiConfig) HandleGetApiAuthorsSearch(w http.ResponseWriter, r *http.Request) {
@@ -415,6 +419,7 @@ func (cfg *ApiConfig) HandleGetApiAuthorsSearch(w http.ResponseWriter, r *http.R
 	searchText := r.URL.Query().Get("text")
 	if searchText == "" {
 		common.RespondWithError(w, http.StatusBadRequest, "Empty search text")
+		return
 	}
 
 	tx, err := cfg.DB.BeginTx(r.Context(), nil)
@@ -444,14 +449,17 @@ func (cfg *ApiConfig) HandleGetApiAuthorsSearch(w http.ResponseWriter, r *http.R
 	for _, bookAuthor := range bookAuthors {
 		bookToAuthors[bookAuthor.BookID] = append(bookToAuthors[bookAuthor.BookID], bookAuthor.FullName)
 	}
+	for _, authors := range bookToAuthors {
+		sort.Strings(authors)
+	}
 
-	responseAuthors := make([]ResponseBookFullInfo, 0, len(books))
+	responseBooks := make([]ResponseBookFullInfo, 0, len(books))
 	for _, book := range books {
 		responseBook := ResponseBookFullInfo{ID: book.ID.String(), Title: book.Title}
 		if authors, ok := bookToAuthors[book.ID]; ok {
 			responseBook.Authors = authors
 		}
-		responseAuthors = append(responseAuthors, responseBook)
+		responseBooks = append(responseBooks, responseBook)
 	}
-	common.RespondWithJSON(w, http.StatusOK, responseAuthors, nil)
+	common.RespondWithJSON(w, http.StatusOK, responseBooks, nil)
 }

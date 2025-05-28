@@ -8,7 +8,9 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -72,7 +74,11 @@ func AddAuthorsDB(db *sql.DB, authors []author) {
 }
 
 func setupTestServer(db *sql.DB) *httptest.Server {
-	apiCfg := server.ApiConfig{DB: db}
+	maxSearchBooksLimit, err := strconv.Atoi(os.Getenv("MAX_SEARCH_BOOKS_LIMIT"))
+	if err != nil {
+		log.Print("Invalid MAX_SEARCH_BOOKS_LIMIT value: ", os.Getenv("MAX_SEARCH_BOOKS_LIMIT"))
+	}
+	apiCfg := server.ApiConfig{DB: db, MaxSearchBooksLimit: maxSearchBooksLimit}
 	sm := http.NewServeMux()
 	server.Handle(sm, &apiCfg)
 	return httptest.NewServer(sm)
