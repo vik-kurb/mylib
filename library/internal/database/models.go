@@ -18,6 +18,7 @@ type Author struct {
 	DeathDate sql.NullTime
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	Tsv       interface{}
 }
 
 type Book struct {

@@ -25,8 +25,18 @@ import (
 // @BasePath /
 
 const (
-	defaultMaxSearchBooksLimit = 10
+	defaultMaxSearchBooksLimit   = 10
+	defaultMaxSearchAuthorsLimit = 10
 )
+
+func getLimit(varName string, defaultValue int) int {
+	limit, err := strconv.Atoi(os.Getenv(varName))
+	if err != nil {
+		log.Printf("Invalid limit %v value: %v", varName, os.Getenv(varName))
+		return defaultValue
+	}
+	return limit
+}
 
 func main() {
 	db, err := common.SetupDB("./.env")
@@ -35,12 +45,7 @@ func main() {
 	}
 
 	sm := http.NewServeMux()
-	maxSearchBooksLimit, err := strconv.Atoi(os.Getenv("MAX_SEARCH_BOOKS_LIMIT"))
-	if err != nil {
-		log.Print("Invalid MAX_SEARCH_BOOKS_LIMIT value: ", os.Getenv("MAX_SEARCH_BOOKS_LIMIT"))
-		maxSearchBooksLimit = defaultMaxSearchBooksLimit
-	}
-	apiCfg := server.ApiConfig{DB: db, MaxSearchBooksLimit: maxSearchBooksLimit}
+	apiCfg := server.ApiConfig{DB: db, MaxSearchBooksLimit: getLimit("MAX_SEARCH_BOOKS_LIMIT", defaultMaxSearchBooksLimit), MaxSearchAuthorsLimit: getLimit("MAX_SEARCH_AUTHORS_LIMIT", defaultMaxSearchAuthorsLimit)}
 	server.Handle(sm, &apiCfg)
 
 	s := http.Server{
