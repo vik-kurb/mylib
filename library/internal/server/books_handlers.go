@@ -410,7 +410,7 @@ func (cfg *ApiConfig) HandlePostApiBooksSearch(w http.ResponseWriter, r *http.Re
 // @Success 400 {object} ErrorResponse "Empty search text"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/books/search [get]
-func (cfg *ApiConfig) HandleGetApiAuthorsSearch(w http.ResponseWriter, r *http.Request) {
+func (cfg *ApiConfig) HandleGetApiBooksSearch(w http.ResponseWriter, r *http.Request) {
 	if cfg.DB == nil {
 		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
 		return

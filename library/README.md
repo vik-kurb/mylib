@@ -18,6 +18,9 @@ Updates existing author's info in DB
 ### GET /api/authors/{id}/books
 Returns a list of books written by the specified author
 
+### GET /api/authors/search
+Searches authors by name. Uses postgres full text search
+
 ## Books API:
 
 ### POST /api/books
@@ -31,6 +34,9 @@ Gets books with requested ID from DB
 
 ### POST /admin/books/{id}
 Deletes a book from DB with requested ID
+
+### GET /api/books/search
+Searches books by title. Uses postgres full text search
 
 ## Health API:
 

@@ -78,7 +78,11 @@ func setupTestServer(db *sql.DB) *httptest.Server {
 	if err != nil {
 		log.Print("Invalid MAX_SEARCH_BOOKS_LIMIT value: ", os.Getenv("MAX_SEARCH_BOOKS_LIMIT"))
 	}
-	apiCfg := server.ApiConfig{DB: db, MaxSearchBooksLimit: maxSearchBooksLimit}
+	maxSearcAuthorsLimit, err := strconv.Atoi(os.Getenv("MAX_SEARCH_AUTHORS_LIMIT"))
+	if err != nil {
+		log.Print("Invalid MAX_SEARCH_AUTHORS_LIMIT value: ", os.Getenv("MAX_SEARCH_AUTHORS_LIMIT"))
+	}
+	apiCfg := server.ApiConfig{DB: db, MaxSearchBooksLimit: maxSearchBooksLimit, MaxSearchAuthorsLimit: maxSearcAuthorsLimit}
 	sm := http.NewServeMux()
 	server.Handle(sm, &apiCfg)
 	return httptest.NewServer(sm)
@@ -475,4 +479,62 @@ func TestPing_Success(t *testing.T) {
 	assert.NoError(t, err)
 	defer common.CloseResponseBody(response)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
+}
+
+func TestSearchAuthors(t *testing.T) {
+	authorID1 := uuid.New()
+	authorID2 := uuid.New()
+	authorID3 := uuid.New()
+	type testCase struct {
+		name               string
+		requestSearchText  string
+		expectedStatusCode int
+		expectedAuthors    []server.ResponseAuthorShortInfo
+	}
+	testCases := []testCase{
+		{
+			name:               "success",
+			requestSearchText:  "Alexander",
+			expectedStatusCode: http.StatusOK,
+			expectedAuthors: []server.ResponseAuthorShortInfo{
+				{FullName: "Alexander Alexander Pushkin", ID: authorID1.String()},
+				{FullName: "Alexander Belyaev", ID: authorID2.String()},
+			},
+		},
+		{
+			name:               "empty search text",
+			requestSearchText:  "",
+			expectedStatusCode: http.StatusBadRequest,
+			expectedAuthors:    nil,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db, err := common.SetupDBByURL("../.env", "TEST_DB_URL")
+			assert.NoError(t, err)
+			defer common.CloseDB(db)
+			cleanupDB(db)
+			AddAuthorsDB(db, []author{
+				{id: authorID1, fullName: "Alexander Alexander Pushkin"},
+				{id: authorID2, fullName: "Alexander Belyaev"},
+				{id: authorID3, fullName: "Fyodor Dostoevsky"},
+			})
+
+			s := setupTestServer(db)
+			defer s.Close()
+
+			response, err := http.Get(s.URL + server.ApiAuthorsSearchPath + "?text=" + tc.requestSearchText)
+			assert.NoError(t, err)
+			defer common.CloseResponseBody(response)
+			assert.Equal(t, tc.expectedStatusCode, response.StatusCode)
+
+			if tc.expectedAuthors != nil {
+				decoder := json.NewDecoder(response.Body)
+				responseBody := make([]server.ResponseAuthorShortInfo, 0)
+				err = decoder.Decode(&responseBody)
+				assert.NoError(t, err)
+				assert.Equal(t, responseBody, tc.expectedAuthors)
+			}
+		})
+	}
 }

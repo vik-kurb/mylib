@@ -255,3 +255,39 @@ func (cfg *ApiConfig) HandleGetApiAuthorsBooks(w http.ResponseWriter, r *http.Re
 
 	common.RespondWithJSON(w, http.StatusOK, response, nil)
 }
+
+// @Summary Search authors by name
+// @Description Searches authors by name. Uses postgres full text search
+// @Tags Authors
+// @Accept json
+// @Produce json
+// @Param text query string true "Search text"
+// @Success 200 {array} ResponseAuthorShortInfo "Authors' info"
+// @Success 400 {object} ErrorResponse "Empty search text"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/authors/search [get]
+func (cfg *ApiConfig) HandleGetApiAuthorsSearch(w http.ResponseWriter, r *http.Request) {
+	if cfg.DB == nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
+		return
+	}
+
+	searchText := r.URL.Query().Get("text")
+	if searchText == "" {
+		common.RespondWithError(w, http.StatusBadRequest, "Empty search text")
+		return
+	}
+
+	queries := database.New(cfg.DB)
+	authors, dbErr := queries.SearchAuthors(r.Context(), database.SearchAuthorsParams{PlaintoTsquery: searchText, Limit: int32(cfg.MaxSearchAuthorsLimit)})
+	if dbErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
+		return
+	}
+
+	responseAuthors := make([]ResponseAuthorShortInfo, 0, len(authors))
+	for _, author := range authors {
+		responseAuthors = append(responseAuthors, ResponseAuthorShortInfo{FullName: author.FullName, ID: author.ID.String()})
+	}
+	common.RespondWithJSON(w, http.StatusOK, responseAuthors, nil)
+}
