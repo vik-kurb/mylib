@@ -36,6 +36,7 @@ Environment variables should be set in .env:
 | `TEST_DB_URL`              | Connection URL for test database (local)  | `postgres://postgres:@localhost:5432/test_library?sslmode=disable` |
 | `MAX_SEARCH_BOOKS_LIMIT`   | Maximum number of books found in search   | `10`                                                               |
 | `MAX_SEARCH_AUTHORS_LIMIT` | Maximum number of authors found in search | `10`                                                               |
+| `CORS_ALLOWED_ORIGIN`      | Allowed origin for cross-origin HTTP requests (Access-Control-Allow-Origin response header in CORS middleware) | `http://localhost:5173/` |
 
 
 ## users
@@ -51,6 +52,7 @@ Environment variables should be set in .env:
 | `DB_PASSWORD`     | Database user password                                  | `postgres`                                                         |
 | `TEST_DB_URL`     | Connection URL for test database (local)                | `postgres://postgres:@localhost:5432/test_library?sslmode=disable` |
 | `AUTH_SECRET_KEY` | Secret key used for signing and verifying JWT tokens    | `Q4uTGasVKJUqlpvhlpQ/Lkg3i+3z5LLdkUPH2tjO1dEVWUqnb9VGjPBhV2rAXh63` |
+| `CORS_ALLOWED_ORIGIN`      | Allowed origin for cross-origin HTTP requests (Access-Control-Allow-Origin response header in CORS middleware) | `http://localhost:5173/` |
 
 ## user-reading
 Microservice that stores reading status of user books. [API](./user-reading/README.md)
@@ -66,6 +68,7 @@ Environment variables should be set in .env:
 | `TEST_DB_URL` | Connection URL for test database (local) | `postgres://postgres:@localhost:5432/test_user_reading?sslmode=disable` |
 | `USERS_SERVICE_HOST` | Host of users service | `http://users:8080` |
 | `LIBRARY_SERVICE_HOST` | Host of library service | `http://library:8080` |
+| `CORS_ALLOWED_ORIGIN`      | Allowed origin for cross-origin HTTP requests (Access-Control-Allow-Origin response header in CORS middleware) | `http://localhost:5173/` |
 
 
 ## License
