@@ -159,7 +159,7 @@ func TestUpdateUser(t *testing.T) {
 
 			requestJson, _ := json.Marshal(tc.request)
 
-			request, requestErr := http.NewRequest("PUT", s.URL+server.ApiUsersPath, bytes.NewBuffer(requestJson))
+			request, requestErr := http.NewRequest(http.MethodPut, s.URL+server.ApiUsersPath, bytes.NewBuffer(requestJson))
 			assert.NoError(t, requestErr)
 			uuid, _ := uuid.Parse(userID)
 			accessToken, _ := auth.MakeJWT(uuid, authSecretKey, time.Hour)
@@ -233,7 +233,7 @@ func TestGetUser(t *testing.T) {
 			s := setupTestServer(db)
 			defer s.Close()
 
-			request, requestErr := http.NewRequest("GET", fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiUsersPath, userID), nil)
+			request, requestErr := http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiUsersPath, userID), nil)
 			assert.NoError(t, requestErr)
 			uuid, _ := uuid.Parse(userID)
 			accessToken, _ := auth.MakeJWT(uuid, authSecretKey, time.Hour)
@@ -284,7 +284,7 @@ func TestDeleteUser(t *testing.T) {
 			s := setupTestServer(db)
 			defer s.Close()
 
-			request, requestErr := http.NewRequest("DELETE", s.URL+server.ApiUsersPath, nil)
+			request, requestErr := http.NewRequest(http.MethodDelete, s.URL+server.ApiUsersPath, nil)
 			assert.NoError(t, requestErr)
 			uuid, _ := uuid.Parse(userID)
 			accessToken, _ := auth.MakeJWT(uuid, authSecretKey, time.Hour)

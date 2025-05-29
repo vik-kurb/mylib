@@ -3,7 +3,7 @@ module github.com/bakurvik/mylib/users
 go 1.23.6
 
 require (
-	github.com/bakurvik/mylib-common v0.1.4
+	github.com/bakurvik/mylib-common v0.1.5
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.10.9

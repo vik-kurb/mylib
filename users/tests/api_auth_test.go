@@ -141,7 +141,7 @@ func TestRefresh(t *testing.T) {
 			s := setupTestServer(db)
 			defer s.Close()
 
-			request, requestErr := http.NewRequest("POST", s.URL+server.AuthRefreshPath, nil)
+			request, requestErr := http.NewRequest(http.MethodPost, s.URL+server.AuthRefreshPath, nil)
 			assert.NoError(t, requestErr)
 			if tc.hasCookie {
 				request.AddCookie(&http.Cookie{
@@ -232,7 +232,7 @@ func TestRevoke(t *testing.T) {
 			s := setupTestServer(db)
 			defer s.Close()
 
-			request, requestErr := http.NewRequest("POST", s.URL+server.AuthRevokePath, nil)
+			request, requestErr := http.NewRequest(http.MethodPost, s.URL+server.AuthRevokePath, nil)
 			assert.NoError(t, requestErr)
 			if tc.hasCookie {
 				request.AddCookie(&http.Cookie{
@@ -304,7 +304,7 @@ func TestWhoami(t *testing.T) {
 			s := setupTestServer(db)
 			defer s.Close()
 
-			request, requestErr := http.NewRequest("GET", s.URL+server.AuthWhoamiPath, nil)
+			request, requestErr := http.NewRequest(http.MethodGet, s.URL+server.AuthWhoamiPath, nil)
 			assert.NoError(t, requestErr)
 			if tc.hasToken {
 				uuid, _ := uuid.Parse(userID)
