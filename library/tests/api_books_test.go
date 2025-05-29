@@ -240,7 +240,7 @@ func TestUpdateBook(t *testing.T) {
 
 			client := &http.Client{}
 			body, _ := json.Marshal(tc.requestBook)
-			request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", s.URL, server.ApiBooksPath), bytes.NewBuffer(body))
+			request, err := http.NewRequest(http.MethodPut, fmt.Sprintf("%v%v", s.URL, server.ApiBooksPath), bytes.NewBuffer(body))
 			assert.NoError(t, err)
 
 			response, err := client.Do(request)
@@ -307,7 +307,7 @@ func TestDeleteBook(t *testing.T) {
 			defer s.Close()
 
 			client := &http.Client{}
-			request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminBooksPath, tc.requestBook), nil)
+			request, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminBooksPath, tc.requestBook), nil)
 			assert.NoError(t, err)
 
 			response, err := client.Do(request)
@@ -391,7 +391,7 @@ func TestGetBooks(t *testing.T) {
 			requestBooks := server.RequestBookIDs{BookIDs: tc.requestedBooks}
 			body, _ := json.Marshal(requestBooks)
 			client := &http.Client{}
-			request, err := http.NewRequest("POST", s.URL+server.ApiBooksSearchPath, bytes.NewBuffer(body))
+			request, err := http.NewRequest(http.MethodPost, s.URL+server.ApiBooksSearchPath, bytes.NewBuffer(body))
 			assert.NoError(t, err)
 
 			response, err := client.Do(request)

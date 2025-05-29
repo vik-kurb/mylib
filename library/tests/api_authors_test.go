@@ -329,7 +329,7 @@ func TestDeleteAuthor(t *testing.T) {
 			defer s.Close()
 
 			client := &http.Client{}
-			request, err := http.NewRequest("DELETE", fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminAuthorsPath, tc.requestAuthor), nil)
+			request, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%v%v/{%v}", s.URL, server.AdminAuthorsPath, tc.requestAuthor), nil)
 			assert.NoError(t, err)
 
 			response, err := client.Do(request)
@@ -394,7 +394,7 @@ func TestUpdateAuthor(t *testing.T) {
 
 			client := &http.Client{}
 			body, _ := json.Marshal(tc.requestAuthor)
-			request, err := http.NewRequest("PUT", fmt.Sprintf("%v%v", s.URL, server.ApiAuthorsPath), bytes.NewBuffer(body))
+			request, err := http.NewRequest(http.MethodPut, fmt.Sprintf("%v%v", s.URL, server.ApiAuthorsPath), bytes.NewBuffer(body))
 			assert.NoError(t, err)
 
 			response, err := client.Do(request)
