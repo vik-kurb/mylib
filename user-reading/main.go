@@ -36,7 +36,7 @@ func main() {
 
 	s := http.Server{
 		Addr:    ":8080",
-		Handler: common.LoggingMiddleware(sm),
+		Handler: common.CORSMiddleware(common.LoggingMiddleware(sm)),
 	}
 	serverErr := s.ListenAndServe()
 	if serverErr != nil {

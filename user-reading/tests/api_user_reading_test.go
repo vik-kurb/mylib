@@ -207,7 +207,7 @@ func TestCreateUserReading(t *testing.T) {
 			requestUserReading := server.UserReading{BookID: tc.libraryData.bookID, Status: tc.status}
 			body, _ := json.Marshal(requestUserReading)
 			client := &http.Client{}
-			request, err := http.NewRequest("POST", s.URL+server.ApiUserReadingPath, bytes.NewBuffer(body))
+			request, err := http.NewRequest(http.MethodPost, s.URL+server.ApiUserReadingPath, bytes.NewBuffer(body))
 			assert.NoError(t, err)
 			request.Header.Add(tc.usersData.authHeader, tc.usersData.authToken)
 
@@ -310,7 +310,7 @@ func TestUpdateUserReading(t *testing.T) {
 			requestUserReading := server.UserReading{BookID: tc.libraryData.bookID, Status: tc.status}
 			body, _ := json.Marshal(requestUserReading)
 			client := &http.Client{}
-			request, err := http.NewRequest("PUT", s.URL+server.ApiUserReadingPath, bytes.NewBuffer(body))
+			request, err := http.NewRequest(http.MethodPut, s.URL+server.ApiUserReadingPath, bytes.NewBuffer(body))
 			assert.NoError(t, err)
 			request.Header.Add(tc.usersData.authHeader, tc.usersData.authToken)
 
@@ -388,7 +388,7 @@ func TestDeleteUserReading(t *testing.T) {
 			defer libraryServer.Close()
 
 			client := &http.Client{}
-			request, err := http.NewRequest("DELETE", s.URL+server.ApiUserReadingPath+"/"+tc.bookID, nil)
+			request, err := http.NewRequest(http.MethodDelete, s.URL+server.ApiUserReadingPath+"/"+tc.bookID, nil)
 			assert.NoError(t, err)
 			request.Header.Add(tc.usersData.authHeader, tc.usersData.authToken)
 
@@ -479,7 +479,7 @@ func TestGetUserReading(t *testing.T) {
 			defer libraryServer.Close()
 
 			client := &http.Client{}
-			request, err := http.NewRequest("GET", s.URL+server.ApiUserReadingPath, nil)
+			request, err := http.NewRequest(http.MethodGet, s.URL+server.ApiUserReadingPath, nil)
 			assert.NoError(t, err)
 			request.Header.Add(tc.usersData.authHeader, tc.usersData.authToken)
 

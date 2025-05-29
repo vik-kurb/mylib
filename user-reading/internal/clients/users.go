@@ -11,7 +11,7 @@ import (
 
 func GetUser(h http.Header, host string) (uuid.UUID, int, error) {
 	client := &http.Client{}
-	request, err := http.NewRequest("GET", fmt.Sprintf("%v%v", host, UsersAuthWhoamiPath), nil)
+	request, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", host, UsersAuthWhoamiPath), nil)
 	if err != nil {
 		return uuid.Nil, 0, err
 	}
