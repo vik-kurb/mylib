@@ -10,74 +10,120 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHashPassword_Success(t *testing.T) {
-	password := "password"
-	hash, _ := HashPassword(password)
-	err := CheckPasswordHash(hash, password)
-	assert.NoError(t, err)
-}
-
-func TestHashPassword_Incorrect(t *testing.T) {
-	password := "password"
-	hash, _ := HashPassword(password)
-	anotherPassword := "another_password"
-	err := CheckPasswordHash(hash, anotherPassword)
-	assert.Error(t, err)
+func TestHashPassword(t *testing.T) {
+	type testCase struct {
+		name            string
+		password        string
+		anotherPassword string
+		hasError        bool
+	}
+	testCases := []testCase{
+		{
+			name:            "success",
+			password:        "password",
+			anotherPassword: "password",
+			hasError:        false,
+		},
+		{
+			name:            "incorrect",
+			password:        "password",
+			anotherPassword: "another_password",
+			hasError:        true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			hash, _ := HashPassword(tc.password)
+			err := CheckPasswordHash(hash, tc.anotherPassword)
+			assert.Equal(t, err != nil, tc.hasError)
+		})
+	}
 }
 
 func TestMakeAndValidateJWT(t *testing.T) {
-	secret := "my-secret"
+	type testCase struct {
+		name          string
+		correctSecret string
+		secretToCheck string
+		hasError      bool
+		expiresIn     time.Duration
+	}
+	testCases := []testCase{
+		{
+			name:          "valid",
+			correctSecret: "my-secret",
+			secretToCheck: "my-secret",
+			expiresIn:     time.Hour,
+			hasError:      false,
+		},
+		{
+			name:          "expired",
+			correctSecret: "my-secret",
+			secretToCheck: "my-secret",
+			expiresIn:     -time.Hour,
+			hasError:      true,
+		},
+		{
+			name:          "invalid_secret",
+			correctSecret: "my-secret",
+			secretToCheck: "wrong-secret",
+			expiresIn:     time.Hour,
+			hasError:      true,
+		},
+	}
 	userID := uuid.New()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			token, err := MakeJWT(userID, tc.correctSecret, tc.expiresIn)
+			assert.NoError(t, err)
+			assert.NotEmpty(t, token)
 
-	token, err := MakeJWT(userID, secret, time.Hour)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, token)
-
-	parsedID, err := ValidateJWT(token, secret)
-	assert.NoError(t, err)
-	assert.Equal(t, userID, parsedID)
+			parsedID, err := ValidateJWT(token, tc.secretToCheck)
+			assert.Equal(t, err != nil, tc.hasError)
+			if !tc.hasError {
+				assert.Equal(t, userID, parsedID)
+			}
+		})
+	}
 }
 
-func TestExpiredJWT(t *testing.T) {
-	secret := "my-secret"
-	userID := uuid.New()
-
-	token, err := MakeJWT(userID, secret, -time.Hour)
-	assert.NoError(t, err)
-
-	_, err = ValidateJWT(token, secret)
-	assert.Error(t, err)
-}
-
-func TestInvalidSecret(t *testing.T) {
-	secret := "correct-secret"
-	wrongSecret := "wrong-secret"
-	userID := uuid.New()
-
-	token, err := MakeJWT(userID, secret, time.Hour)
-	assert.NoError(t, err)
-
-	_, err = ValidateJWT(token, wrongSecret)
-	assert.Error(t, err)
-}
-
-func TestGetBearerToken_Success(t *testing.T) {
-	headers := http.Header{}
+func TestGetBearerToken(t *testing.T) {
 	token := "some_token"
-	headers.Add("Authorization", "Bearer "+token)
-	token, err := GetBearerToken(headers)
-	assert.NoError(t, err)
-	assert.Equal(t, token, token)
-}
-
-func TestGetBearerToken_NoToken(t *testing.T) {
-	headers := http.Header{}
-	headers.Add("Authorization", "Another header ")
-	_, err := GetBearerToken(headers)
-	assert.Equal(t, err, errors.New("no token in header"))
-}
-
-func TestGetBearerToken_NoHeader(t *testing.T) {
-	_, err := GetBearerToken(http.Header{})
-	assert.Equal(t, err, errors.New("no authorization header"))
+	type testCase struct {
+		name          string
+		headerKey     string
+		headerValue   string
+		expectedError error
+	}
+	testCases := []testCase{
+		{
+			name:          "success",
+			headerKey:     "Authorization",
+			headerValue:   "Bearer " + token,
+			expectedError: nil,
+		},
+		{
+			name:          "no_token",
+			headerKey:     "Authorization",
+			headerValue:   "Another header ",
+			expectedError: errors.New("no token in header"),
+		},
+		{
+			name:          "no_header",
+			headerKey:     "",
+			headerValue:   "",
+			expectedError: errors.New("no authorization header"),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			headers := http.Header{}
+			headers.Add(tc.headerKey, tc.headerValue)
+			token, err := GetBearerToken(headers)
+			assert.Equal(t, err, tc.expectedError)
+			if tc.expectedError == nil {
+				assert.Equal(t, token, token)
+			}
+		})
+	}
 }
