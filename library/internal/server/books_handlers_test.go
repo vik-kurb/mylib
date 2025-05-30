@@ -13,41 +13,57 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMergeAuthors_NoDiff(t *testing.T) {
-	oldAuthors := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
-	newAuthors := oldAuthors
-	diff := mergeAuthors(oldAuthors, newAuthors)
+func TestMergeAuthors(t *testing.T) {
+	type testCase struct {
+		name                    string
+		oldAuthors              []uuid.UUID
+		newAuthors              []uuid.UUID
+		expectedAuthorsToDelete []uuid.UUID
+		expectedAuthorsToInsert []uuid.UUID
+	}
+	authorID1 := uuid.New()
+	authorID2 := uuid.New()
+	authorID3 := uuid.New()
+	authorID4 := uuid.New()
+	authorID5 := uuid.New()
+	testCases := []testCase{
+		{
+			name:                    "no_change",
+			oldAuthors:              []uuid.UUID{authorID1, authorID2, authorID3},
+			newAuthors:              []uuid.UUID{authorID1, authorID2, authorID3},
+			expectedAuthorsToDelete: nil,
+			expectedAuthorsToInsert: nil,
+		},
+		{
+			name:                    "only_delete",
+			oldAuthors:              []uuid.UUID{authorID1, authorID2, authorID3},
+			newAuthors:              []uuid.UUID{authorID1},
+			expectedAuthorsToDelete: []uuid.UUID{authorID2, authorID3},
+			expectedAuthorsToInsert: nil,
+		},
+		{
+			name:                    "only_insert",
+			oldAuthors:              []uuid.UUID{authorID1, authorID2, authorID3},
+			newAuthors:              []uuid.UUID{authorID1, authorID2, authorID3, authorID4, authorID5},
+			expectedAuthorsToDelete: nil,
+			expectedAuthorsToInsert: []uuid.UUID{authorID4, authorID5},
+		},
+		{
+			name:                    "delete_and_insert",
+			oldAuthors:              []uuid.UUID{authorID1, authorID2, authorID3},
+			newAuthors:              []uuid.UUID{authorID1, authorID4, authorID5},
+			expectedAuthorsToDelete: []uuid.UUID{authorID2, authorID3},
+			expectedAuthorsToInsert: []uuid.UUID{authorID4, authorID5},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			diff := mergeAuthors(tc.oldAuthors, tc.newAuthors)
 
-	assert.Equal(t, len(diff.authorsToDelete), 0)
-	assert.Equal(t, len(diff.authorsToInsert), 0)
-}
-
-func TestMergeAuthors_OnlyDelete(t *testing.T) {
-	oldAuthors := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
-	newAuthors := []uuid.UUID{oldAuthors[0]}
-	diff := mergeAuthors(oldAuthors, newAuthors)
-
-	assert.ElementsMatch(t, diff.authorsToDelete, []uuid.UUID{oldAuthors[1], oldAuthors[2]})
-	assert.Equal(t, len(diff.authorsToInsert), 0)
-}
-
-func TestMergeAuthors_OnlyInsert(t *testing.T) {
-	oldAuthors := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
-	newAuthors := oldAuthors
-	newAuthors = append(newAuthors, uuid.New(), uuid.New())
-	diff := mergeAuthors(oldAuthors, newAuthors)
-
-	assert.ElementsMatch(t, diff.authorsToInsert, []uuid.UUID{newAuthors[3], newAuthors[4]})
-	assert.Equal(t, len(diff.authorsToDelete), 0)
-}
-
-func TestMergeAuthors_DeleteAndInsert(t *testing.T) {
-	oldAuthors := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
-	newAuthors := []uuid.UUID{oldAuthors[0], uuid.New(), uuid.New()}
-	diff := mergeAuthors(oldAuthors, newAuthors)
-
-	assert.ElementsMatch(t, diff.authorsToInsert, []uuid.UUID{newAuthors[1], newAuthors[2]})
-	assert.ElementsMatch(t, diff.authorsToDelete, []uuid.UUID{oldAuthors[1], oldAuthors[2]})
+			assert.ElementsMatch(t, diff.authorsToDelete, tc.expectedAuthorsToDelete)
+			assert.ElementsMatch(t, diff.authorsToInsert, tc.expectedAuthorsToInsert)
+		})
+	}
 }
 
 func TestGetUniqueAuthors(t *testing.T) {
@@ -57,21 +73,35 @@ func TestGetUniqueAuthors(t *testing.T) {
 	authorID1 := uuid.New()
 	authorID2 := uuid.New()
 	authorID3 := uuid.New()
-	bookAuthors := []database.GetAuthorsByBooksRow{
-		{BookID: bookID1, AuthorID: authorID1},
-		{BookID: bookID2, AuthorID: authorID1},
-		{BookID: bookID2, AuthorID: authorID2},
-		{BookID: bookID3, AuthorID: authorID2},
-		{BookID: bookID3, AuthorID: authorID3},
+	type testCase struct {
+		name              string
+		bookAuthors       []database.GetAuthorsByBooksRow
+		expectedAuthorIDS []uuid.UUID
 	}
-	authorIDs := getUniqueAuthors(bookAuthors)
-	assert.ElementsMatch(t, authorIDs, []uuid.UUID{authorID1, authorID2, authorID3})
-}
-
-func TestGetUniqueAuthors_Empty(t *testing.T) {
-	bookAuthors := []database.GetAuthorsByBooksRow{}
-	authorIDs := getUniqueAuthors(bookAuthors)
-	assert.ElementsMatch(t, authorIDs, []uuid.UUID{})
+	testCases := []testCase{
+		{
+			name: "remove_duplicate",
+			bookAuthors: []database.GetAuthorsByBooksRow{
+				{BookID: bookID1, AuthorID: authorID1},
+				{BookID: bookID2, AuthorID: authorID1},
+				{BookID: bookID2, AuthorID: authorID2},
+				{BookID: bookID3, AuthorID: authorID2},
+				{BookID: bookID3, AuthorID: authorID3},
+			},
+			expectedAuthorIDS: []uuid.UUID{authorID1, authorID2, authorID3},
+		},
+		{
+			name:              "empty",
+			bookAuthors:       []database.GetAuthorsByBooksRow{},
+			expectedAuthorIDS: []uuid.UUID{},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			authorIDs := getUniqueAuthors(tc.bookAuthors)
+			assert.ElementsMatch(t, authorIDs, tc.expectedAuthorIDS)
+		})
+	}
 }
 
 func makeRequest(body string) *http.Request {
@@ -79,43 +109,48 @@ func makeRequest(body string) *http.Request {
 	return r
 }
 
-func TestParseBookIDs_AllValid(t *testing.T) {
+func TestParseBookIDs(t *testing.T) {
 	id1 := uuid.New()
 	id2 := uuid.New()
-	body := fmt.Sprintf(`{"book_ids": ["%v", "%v"]}`, id1, id2)
+	type testCase struct {
+		name            string
+		body            string
+		expectedBookIDs []uuid.UUID
+		hasError        bool
+	}
+	testCases := []testCase{
+		{
+			name:            "all_valid",
+			body:            fmt.Sprintf(`{"book_ids": ["%v", "%v"]}`, id1, id2),
+			expectedBookIDs: []uuid.UUID{id1, id2},
+			hasError:        false,
+		},
+		{
+			name:            "filter_out_invalid",
+			body:            fmt.Sprintf(`{"book_ids": ["%v", "%v", "invalid_id"]}`, id1, id2),
+			expectedBookIDs: []uuid.UUID{id1, id2},
+			hasError:        false,
+		},
+		{
+			name:            "empty",
+			body:            `{"book_ids": []}`,
+			expectedBookIDs: nil,
+			hasError:        true,
+		},
+		{
+			name:            "invalid_json",
+			body:            `invalid_json`,
+			expectedBookIDs: nil,
+			hasError:        true,
+		},
+	}
 
-	req := makeRequest(body)
-	uuids, err := parseBookIDs(req)
-	assert.NoError(t, err)
-	assert.ElementsMatch(t, uuids, []uuid.UUID{id1, id2})
-}
-
-func TestParseBookIDs_FilterOutInvalid(t *testing.T) {
-	id1 := uuid.New()
-	id2 := uuid.New()
-	invalidID := "invalidID"
-	body := fmt.Sprintf(`{"book_ids": ["%v", "%v", "%v"]}`, id1, id2, invalidID)
-
-	req := makeRequest(body)
-	uuids, err := parseBookIDs(req)
-	assert.NoError(t, err)
-	assert.ElementsMatch(t, uuids, []uuid.UUID{id1, id2})
-}
-
-func TestParseBookIDs_Empty(t *testing.T) {
-	body := `{"book_ids": []}`
-
-	req := makeRequest(body)
-	uuids, err := parseBookIDs(req)
-	assert.Error(t, err)
-	assert.ElementsMatch(t, uuids, nil)
-}
-
-func TestParseBookIDs_InvalidJSON(t *testing.T) {
-	body := `invalid_json`
-
-	req := makeRequest(body)
-	uuids, err := parseBookIDs(req)
-	assert.Error(t, err)
-	assert.ElementsMatch(t, uuids, nil)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := makeRequest(tc.body)
+			uuids, err := parseBookIDs(req)
+			assert.Equal(t, err != nil, tc.hasError)
+			assert.ElementsMatch(t, uuids, tc.expectedBookIDs)
+		})
+	}
 }
