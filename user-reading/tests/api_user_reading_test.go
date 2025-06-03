@@ -21,8 +21,8 @@ import (
 
 const (
 	deleteUserReading = "DELETE FROM user_reading"
-	selectUserReading = "SELECT book_id, status FROM user_reading WHERE user_id = $1"
-	insertUserReading = "INSERT INTO user_reading(user_id, book_id, status) VALUES($1, $2, $3)"
+	selectUserReading = "SELECT book_id, status, rating FROM user_reading WHERE user_id = $1"
+	insertUserReading = "INSERT INTO user_reading(user_id, book_id, status, rating) VALUES($1, $2, $3, $4)"
 )
 
 type usersServiceData struct {
@@ -96,7 +96,7 @@ func getDBUserReading(t *testing.T, db *sql.DB, userID uuid.UUID) []server.UserR
 
 	for rows.Next() {
 		ur := server.UserReading{}
-		err := rows.Scan(&ur.BookID, &ur.Status)
+		err := rows.Scan(&ur.BookID, &ur.Status, &ur.Rating)
 		if err != nil {
 			log.Fatal("Error scanning row:", err)
 		}
@@ -113,7 +113,7 @@ func addDBUserReading(db *sql.DB, userID string, userReadings []server.UserReadi
 	for _, userReading := range userReadings {
 		_, err := db.Exec(
 			insertUserReading,
-			userID, userReading.BookID, userReading.Status)
+			userID, userReading.BookID, userReading.Status, userReading.Rating)
 		if err != nil {
 			log.Print("Failed to add user reading to db: ", err)
 		}
@@ -143,6 +143,7 @@ func TestCreateUserReading(t *testing.T) {
 	type testCase struct {
 		name                 string
 		status               string
+		rating               int
 		usersData            usersServiceData
 		libraryData          libraryServiceData
 		expectedStatusCode   int
@@ -153,14 +154,16 @@ func TestCreateUserReading(t *testing.T) {
 		{
 			name:                 "success",
 			status:               "finished",
+			rating:               7,
 			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
 			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
 			expectedStatusCode:   http.StatusCreated,
-			expectedUserReadings: []server.UserReading{{BookID: bookID.String(), Status: "finished"}},
+			expectedUserReadings: []server.UserReading{{BookID: bookID.String(), Status: "finished", Rating: 7}},
 		},
 		{
 			name:                 "invalid_book_id",
 			status:               "finished",
+			rating:               7,
 			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
 			libraryData:          libraryServiceData{bookID: "invalid_book_id", statusCode: http.StatusBadRequest},
 			expectedStatusCode:   http.StatusBadRequest,
@@ -169,6 +172,7 @@ func TestCreateUserReading(t *testing.T) {
 		{
 			name:                 "invalid_status",
 			status:               "invalid_status",
+			rating:               7,
 			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
 			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
 			expectedStatusCode:   http.StatusBadRequest,
@@ -177,6 +181,7 @@ func TestCreateUserReading(t *testing.T) {
 		{
 			name:                 "unauthorized",
 			status:               "finished",
+			rating:               7,
 			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusUnauthorized},
 			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
 			expectedStatusCode:   http.StatusUnauthorized,
@@ -185,6 +190,7 @@ func TestCreateUserReading(t *testing.T) {
 		{
 			name:                 "book_not_found",
 			status:               "finished",
+			rating:               7,
 			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
 			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusNotFound},
 			expectedStatusCode:   http.StatusBadRequest,
@@ -204,7 +210,7 @@ func TestCreateUserReading(t *testing.T) {
 			defer usersServer.Close()
 			defer libraryServer.Close()
 
-			requestUserReading := server.UserReading{BookID: tc.libraryData.bookID, Status: tc.status}
+			requestUserReading := server.UserReading{BookID: tc.libraryData.bookID, Status: tc.status, Rating: tc.rating}
 			body, _ := json.Marshal(requestUserReading)
 			client := &http.Client{}
 			request, err := http.NewRequest(http.MethodPost, s.URL+server.ApiUserReadingPath, bytes.NewBuffer(body))
@@ -229,6 +235,7 @@ func TestUpdateUserReading(t *testing.T) {
 	type testCase struct {
 		name                 string
 		status               string
+		rating               int
 		usersData            usersServiceData
 		libraryData          libraryServiceData
 		dbUserReadings       []server.UserReading
@@ -240,51 +247,57 @@ func TestUpdateUserReading(t *testing.T) {
 		{
 			name:                 "success",
 			status:               "finished",
+			rating:               3,
 			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
 			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
-			dbUserReadings:       []server.UserReading{{BookID: bookID.String(), Status: "want_to_read"}},
+			dbUserReadings:       []server.UserReading{{BookID: bookID.String(), Status: "want_to_read", Rating: 5}},
 			expectedStatusCode:   http.StatusNoContent,
-			expectedUserReadings: []server.UserReading{{BookID: bookID.String(), Status: "finished"}},
+			expectedUserReadings: []server.UserReading{{BookID: bookID.String(), Status: "finished", Rating: 3}},
 		},
 		{
 			name:                 "invalid_book_id",
 			status:               "finished",
+			rating:               3,
 			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
 			libraryData:          libraryServiceData{bookID: "invalid_book_id", statusCode: http.StatusBadRequest},
-			dbUserReadings:       []server.UserReading{{BookID: bookID.String(), Status: "want_to_read"}},
+			dbUserReadings:       []server.UserReading{{BookID: bookID.String(), Status: "want_to_read", Rating: 5}},
 			expectedStatusCode:   http.StatusBadRequest,
-			expectedUserReadings: []server.UserReading{{BookID: bookID.String(), Status: "want_to_read"}},
+			expectedUserReadings: []server.UserReading{{BookID: bookID.String(), Status: "want_to_read", Rating: 5}},
 		},
 		{
 			name:                 "invalid_status",
 			status:               "invalid_status",
+			rating:               3,
 			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
 			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
-			dbUserReadings:       []server.UserReading{{BookID: bookID.String(), Status: "want_to_read"}},
+			dbUserReadings:       []server.UserReading{{BookID: bookID.String(), Status: "want_to_read", Rating: 5}},
 			expectedStatusCode:   http.StatusBadRequest,
-			expectedUserReadings: []server.UserReading{{BookID: bookID.String(), Status: "want_to_read"}},
+			expectedUserReadings: []server.UserReading{{BookID: bookID.String(), Status: "want_to_read", Rating: 5}},
 		},
 		{
 			name:                 "unauthorized",
 			status:               "finished",
+			rating:               3,
 			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusUnauthorized},
 			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
-			dbUserReadings:       []server.UserReading{{BookID: bookID.String(), Status: "want_to_read"}},
+			dbUserReadings:       []server.UserReading{{BookID: bookID.String(), Status: "want_to_read", Rating: 5}},
 			expectedStatusCode:   http.StatusUnauthorized,
-			expectedUserReadings: []server.UserReading{{BookID: bookID.String(), Status: "want_to_read"}},
+			expectedUserReadings: []server.UserReading{{BookID: bookID.String(), Status: "want_to_read", Rating: 5}},
 		},
 		{
 			name:                 "book_not_found",
 			status:               "finished",
+			rating:               3,
 			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
 			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusNotFound},
-			dbUserReadings:       []server.UserReading{{BookID: bookID.String(), Status: "want_to_read"}},
+			dbUserReadings:       []server.UserReading{{BookID: bookID.String(), Status: "want_to_read", Rating: 5}},
 			expectedStatusCode:   http.StatusBadRequest,
-			expectedUserReadings: []server.UserReading{{BookID: bookID.String(), Status: "want_to_read"}},
+			expectedUserReadings: []server.UserReading{{BookID: bookID.String(), Status: "want_to_read", Rating: 5}},
 		},
 		{
 			name:                 "no_user_reading",
 			status:               "finished",
+			rating:               3,
 			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
 			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
 			dbUserReadings:       []server.UserReading{},
@@ -307,7 +320,7 @@ func TestUpdateUserReading(t *testing.T) {
 			defer usersServer.Close()
 			defer libraryServer.Close()
 
-			requestUserReading := server.UserReading{BookID: tc.libraryData.bookID, Status: tc.status}
+			requestUserReading := server.UserReading{BookID: tc.libraryData.bookID, Status: tc.status, Rating: tc.rating}
 			body, _ := json.Marshal(requestUserReading)
 			client := &http.Client{}
 			request, err := http.NewRequest(http.MethodPut, s.URL+server.ApiUserReadingPath, bytes.NewBuffer(body))
