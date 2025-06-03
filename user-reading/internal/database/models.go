@@ -61,4 +61,5 @@ type UserReading struct {
 	Status    ReadingStatus
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	Rating    int32
 }

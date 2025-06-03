@@ -12,7 +12,7 @@ import (
 )
 
 const updateUserReading = `-- name: UpdateUserReading :one
-UPDATE user_reading SET status = $3
+UPDATE user_reading SET status = $3, rating = $4
 WHERE user_id = $1 AND book_id = $2
 RETURNING 1
 `
@@ -21,10 +21,16 @@ type UpdateUserReadingParams struct {
 	UserID uuid.UUID
 	BookID uuid.UUID
 	Status ReadingStatus
+	Rating int32
 }
 
 func (q *Queries) UpdateUserReading(ctx context.Context, arg UpdateUserReadingParams) (int32, error) {
-	row := q.db.QueryRowContext(ctx, updateUserReading, arg.UserID, arg.BookID, arg.Status)
+	row := q.db.QueryRowContext(ctx, updateUserReading,
+		arg.UserID,
+		arg.BookID,
+		arg.Status,
+		arg.Rating,
+	)
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err

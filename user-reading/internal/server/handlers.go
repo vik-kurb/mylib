@@ -12,6 +12,12 @@ import (
 	common "github.com/bakurvik/mylib-common"
 )
 
+type parsedUserReading struct {
+	bookID uuid.UUID
+	status database.ReadingStatus
+	rating int32
+}
+
 func mapUserReadingStatus(status string) (database.ReadingStatus, error) {
 	dbStatus := database.ReadingStatus(status)
 	if dbStatus == database.ReadingStatusFinished || dbStatus == database.ReadingStatusReading || dbStatus == database.ReadingStatusWantToRead {
@@ -20,22 +26,26 @@ func mapUserReadingStatus(status string) (database.ReadingStatus, error) {
 	return "", errors.New("unknown reading status")
 }
 
-func parseUserReading(r *http.Request) (uuid.UUID, database.ReadingStatus, error) {
+func parseUserReading(r *http.Request) (parsedUserReading, error) {
 	decoder := json.NewDecoder(r.Body)
 	request := UserReading{}
 	err := decoder.Decode(&request)
 	if err != nil {
-		return uuid.Nil, "", err
+		return parsedUserReading{}, err
 	}
 	bookUUID, err := uuid.Parse(request.BookID)
 	if err != nil {
-		return uuid.Nil, "", err
+		return parsedUserReading{}, err
 	}
 	readingStatus, err := mapUserReadingStatus(request.Status)
 	if err != nil {
-		return uuid.Nil, "", err
+		return parsedUserReading{}, err
 	}
-	return bookUUID, readingStatus, nil
+	res := parsedUserReading{bookID: bookUUID, status: readingStatus}
+	if readingStatus == database.ReadingStatusFinished {
+		res.rating = int32(request.Rating)
+	}
+	return res, nil
 }
 
 func checkUserAndBook(r *http.Request, cfg *ApiConfig, bookUUID uuid.UUID) (uuid.UUID, int, error) {
@@ -106,7 +116,7 @@ func (cfg *ApiConfig) HandlePing(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} ErrorResponse
 // @Router /api/authors [post]
 func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *http.Request) {
-	bookUUID, readingStatus, err := parseUserReading(r)
+	userReading, err := parseUserReading(r)
 	if err != nil {
 		common.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
@@ -117,7 +127,7 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 		return
 	}
 
-	userUUID, statusCode, err := checkUserAndBook(r, cfg, bookUUID)
+	userUUID, statusCode, err := checkUserAndBook(r, cfg, userReading.bookID)
 	if err != nil {
 		common.RespondWithError(w, statusCode, err.Error())
 		return
@@ -128,8 +138,9 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 		r.Context(),
 		database.CreateUserReadingParams{
 			UserID: userUUID,
-			BookID: bookUUID,
-			Status: readingStatus})
+			BookID: userReading.bookID,
+			Status: userReading.status,
+			Rating: userReading.rating})
 	if dbErr != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return
@@ -149,7 +160,7 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 // @Failure 500 {object} ErrorResponse
 // @Router /api/authors [post]
 func (cfg *ApiConfig) HandlePutApiUserReadingPath(w http.ResponseWriter, r *http.Request) {
-	bookUUID, readingStatus, err := parseUserReading(r)
+	userReading, err := parseUserReading(r)
 	if err != nil {
 		common.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
@@ -160,7 +171,7 @@ func (cfg *ApiConfig) HandlePutApiUserReadingPath(w http.ResponseWriter, r *http
 		return
 	}
 
-	userUUID, statusCode, err := checkUserAndBook(r, cfg, bookUUID)
+	userUUID, statusCode, err := checkUserAndBook(r, cfg, userReading.bookID)
 	if err != nil {
 		common.RespondWithError(w, statusCode, err.Error())
 		return
@@ -171,8 +182,9 @@ func (cfg *ApiConfig) HandlePutApiUserReadingPath(w http.ResponseWriter, r *http
 		r.Context(),
 		database.UpdateUserReadingParams{
 			UserID: userUUID,
-			BookID: bookUUID,
-			Status: readingStatus})
+			BookID: userReading.bookID,
+			Status: userReading.status,
+			Rating: userReading.rating})
 	if count == 0 {
 		common.RespondWithError(w, http.StatusBadRequest, "Unknown user reading")
 		return

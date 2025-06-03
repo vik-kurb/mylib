@@ -12,9 +12,9 @@ import (
 )
 
 const createUserReading = `-- name: CreateUserReading :exec
-INSERT INTO user_reading (user_id, book_id, status)
+INSERT INTO user_reading (user_id, book_id, status, rating)
 VALUES (
-    $1, $2, $3
+    $1, $2, $3, $4
 )
 `
 
@@ -22,9 +22,15 @@ type CreateUserReadingParams struct {
 	UserID uuid.UUID
 	BookID uuid.UUID
 	Status ReadingStatus
+	Rating int32
 }
 
 func (q *Queries) CreateUserReading(ctx context.Context, arg CreateUserReadingParams) error {
-	_, err := q.db.ExecContext(ctx, createUserReading, arg.UserID, arg.BookID, arg.Status)
+	_, err := q.db.ExecContext(ctx, createUserReading,
+		arg.UserID,
+		arg.BookID,
+		arg.Status,
+		arg.Rating,
+	)
 	return err
 }

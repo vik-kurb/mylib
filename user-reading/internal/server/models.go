@@ -3,6 +3,7 @@ package server
 type UserReading struct {
 	BookID string `json:"book_id"`
 	Status string `json:"status"`
+	Rating int
 }
 
 type ErrorResponse struct {
