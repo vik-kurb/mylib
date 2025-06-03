@@ -12,13 +12,14 @@ import (
 )
 
 const getUserReading = `-- name: GetUserReading :many
-SELECT book_id, status FROM user_reading
+SELECT book_id, status, rating FROM user_reading
 WHERE user_id = $1
 `
 
 type GetUserReadingRow struct {
 	BookID uuid.UUID
 	Status ReadingStatus
+	Rating int32
 }
 
 func (q *Queries) GetUserReading(ctx context.Context, userID uuid.UUID) ([]GetUserReadingRow, error) {
@@ -30,7 +31,7 @@ func (q *Queries) GetUserReading(ctx context.Context, userID uuid.UUID) ([]GetUs
 	var items []GetUserReadingRow
 	for rows.Next() {
 		var i GetUserReadingRow
-		if err := rows.Scan(&i.BookID, &i.Status); err != nil {
+		if err := rows.Scan(&i.BookID, &i.Status, &i.Rating); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

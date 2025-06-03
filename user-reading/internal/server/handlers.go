@@ -18,6 +18,11 @@ type parsedUserReading struct {
 	rating int32
 }
 
+type bookReadInfo struct {
+	status string
+	rating int
+}
+
 func mapUserReadingStatus(status string) (database.ReadingStatus, error) {
 	dbStatus := database.ReadingStatus(status)
 	if dbStatus == database.ReadingStatusFinished || dbStatus == database.ReadingStatusReading || dbStatus == database.ReadingStatusWantToRead {
@@ -247,10 +252,10 @@ func getBookIDs(userReading []database.GetUserReadingRow) []string {
 	return res
 }
 
-func getBookToStatus(userReading []database.GetUserReadingRow) map[string]string {
-	res := make(map[string]string)
+func getBookToReadInfo(userReading []database.GetUserReadingRow) map[string]bookReadInfo {
+	res := make(map[string]bookReadInfo)
 	for _, book := range userReading {
-		res[book.BookID.String()] = string(book.Status)
+		res[book.BookID.String()] = bookReadInfo{status: string(book.Status), rating: int(book.Rating)}
 	}
 	return res
 }
@@ -301,14 +306,14 @@ func (cfg *ApiConfig) HandleGetApiUserReadingPath(w http.ResponseWriter, r *http
 		common.RespondWithError(w, http.StatusInternalServerError, "Failed to get books info")
 		return
 	}
-	bookToStatus := getBookToStatus(userReading)
+	bookToReadInfo := getBookToReadInfo(userReading)
 	response := []ResponseUserReading{}
 	for _, bookInfo := range booksInfo {
-		status, ok := bookToStatus[bookInfo.ID]
+		readInfo, ok := bookToReadInfo[bookInfo.ID]
 		if !ok {
 			continue
 		}
-		response = append(response, ResponseUserReading{ID: bookInfo.ID, Title: bookInfo.Title, Authors: bookInfo.Authors, Status: status})
+		response = append(response, ResponseUserReading{ID: bookInfo.ID, Title: bookInfo.Title, Authors: bookInfo.Authors, Status: readInfo.status, Rating: readInfo.rating})
 	}
 
 	common.RespondWithJSON(w, http.StatusOK, response, nil)

@@ -435,20 +435,20 @@ func TestGetUserReading(t *testing.T) {
 			name:               "success_one_book",
 			usersData:          usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
 			libraryData:        libraryServiceData{statusCode: http.StatusOK, booksInfo: []clients.ResponseBookFullInfo{{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}}}},
-			dbUserReadings:     []server.UserReading{{BookID: book1.String(), Status: "finished"}},
+			dbUserReadings:     []server.UserReading{{BookID: book1.String(), Status: "finished", Rating: 6}},
 			expectedStatusCode: http.StatusOK,
 			expectedResponse: []server.ResponseUserReading{
-				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}, Status: "finished"}},
+				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}, Status: "finished", Rating: 6}},
 		},
 		{
 			name:               "success_several_books_and_authors",
 			usersData:          usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
 			libraryData:        libraryServiceData{statusCode: http.StatusOK, booksInfo: []clients.ResponseBookFullInfo{{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}}, {ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}}}},
-			dbUserReadings:     []server.UserReading{{BookID: book1.String(), Status: "finished"}, {BookID: book2.String(), Status: "reading"}},
+			dbUserReadings:     []server.UserReading{{BookID: book1.String(), Status: "finished", Rating: 6}, {BookID: book2.String(), Status: "reading", Rating: 3}},
 			expectedStatusCode: http.StatusOK,
 			expectedResponse: []server.ResponseUserReading{
-				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}, Status: "finished"},
-				{ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}, Status: "reading"}},
+				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}, Status: "finished", Rating: 6},
+				{ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}, Status: "reading", Rating: 3}},
 		},
 		{
 			name:               "unauthorized",
@@ -470,10 +470,10 @@ func TestGetUserReading(t *testing.T) {
 			name:               "filter_out_unknown_book",
 			usersData:          usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
 			libraryData:        libraryServiceData{statusCode: http.StatusOK, booksInfo: []clients.ResponseBookFullInfo{{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}}}},
-			dbUserReadings:     []server.UserReading{{BookID: book1.String(), Status: "finished"}, {BookID: book2.String(), Status: "reading"}},
+			dbUserReadings:     []server.UserReading{{BookID: book1.String(), Status: "finished", Rating: 6}, {BookID: book2.String(), Status: "reading", Rating: 3}},
 			expectedStatusCode: http.StatusOK,
 			expectedResponse: []server.ResponseUserReading{
-				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}, Status: "finished"}},
+				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}, Status: "finished", Rating: 6}},
 		},
 	}
 
