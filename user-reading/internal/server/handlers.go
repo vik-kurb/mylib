@@ -200,7 +200,7 @@ func (cfg *ApiConfig) HandlePutApiUserReadingPath(w http.ResponseWriter, r *http
 			UserID: userUUID,
 			BookID: userReading.bookID,
 			Status: userReading.status,
-			Rating: userReading.rating})
+			Rating: userReading.rating, StartDate: userReading.startDate, FinishDate: userReading.finishDate})
 	if count == 0 {
 		common.RespondWithError(w, http.StatusBadRequest, "Unknown user reading")
 		return

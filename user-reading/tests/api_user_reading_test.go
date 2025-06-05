@@ -270,6 +270,8 @@ func TestUpdateUserReading(t *testing.T) {
 		name                 string
 		status               string
 		rating               int
+		startDate            string
+		finishDate           string
 		usersData            usersServiceData
 		libraryData          libraryServiceData
 		dbUserReadings       []server.UserReading
@@ -338,6 +340,30 @@ func TestUpdateUserReading(t *testing.T) {
 			expectedStatusCode:   http.StatusBadRequest,
 			expectedUserReadings: []server.UserReading{},
 		},
+		{
+			name:                 "success_with_start_finish_date",
+			status:               "finished",
+			rating:               3,
+			startDate:            "04.09.2016",
+			finishDate:           "12.10.2016",
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
+			dbUserReadings:       []server.UserReading{{BookID: bookID.String(), Status: "want_to_read", Rating: 5}},
+			expectedStatusCode:   http.StatusNoContent,
+			expectedUserReadings: []server.UserReading{{BookID: bookID.String(), Status: "finished", Rating: 3, StartDate: "04.09.2016", FinishDate: "12.10.2016"}},
+		},
+		{
+			name:                 "invalid_start_finish_date",
+			status:               "finished",
+			rating:               3,
+			startDate:            "04.09.2017",
+			finishDate:           "12.10.2016",
+			usersData:            usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:          libraryServiceData{bookID: bookID.String(), statusCode: http.StatusOK},
+			dbUserReadings:       []server.UserReading{{BookID: bookID.String(), Status: "want_to_read", Rating: 5}},
+			expectedStatusCode:   http.StatusBadRequest,
+			expectedUserReadings: []server.UserReading{{BookID: bookID.String(), Status: "want_to_read", Rating: 5}},
+		},
 	}
 
 	for _, tc := range tests {
@@ -354,7 +380,7 @@ func TestUpdateUserReading(t *testing.T) {
 			defer usersServer.Close()
 			defer libraryServer.Close()
 
-			requestUserReading := server.UserReading{BookID: tc.libraryData.bookID, Status: tc.status, Rating: tc.rating}
+			requestUserReading := server.UserReading{BookID: tc.libraryData.bookID, Status: tc.status, Rating: tc.rating, StartDate: tc.startDate, FinishDate: tc.finishDate}
 			body, _ := json.Marshal(requestUserReading)
 			client := &http.Client{}
 			request, err := http.NewRequest(http.MethodPut, s.URL+server.ApiUserReadingPath, bytes.NewBuffer(body))

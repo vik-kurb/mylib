@@ -7,21 +7,24 @@ package database
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 )
 
 const updateUserReading = `-- name: UpdateUserReading :one
-UPDATE user_reading SET status = $3, rating = $4
+UPDATE user_reading SET status = $3, rating = $4, start_date = $5, finish_date = $6
 WHERE user_id = $1 AND book_id = $2
 RETURNING 1
 `
 
 type UpdateUserReadingParams struct {
-	UserID uuid.UUID
-	BookID uuid.UUID
-	Status ReadingStatus
-	Rating int32
+	UserID     uuid.UUID
+	BookID     uuid.UUID
+	Status     ReadingStatus
+	Rating     int32
+	StartDate  sql.NullTime
+	FinishDate sql.NullTime
 }
 
 func (q *Queries) UpdateUserReading(ctx context.Context, arg UpdateUserReadingParams) (int32, error) {
@@ -30,6 +33,8 @@ func (q *Queries) UpdateUserReading(ctx context.Context, arg UpdateUserReadingPa
 		arg.BookID,
 		arg.Status,
 		arg.Rating,
+		arg.StartDate,
+		arg.FinishDate,
 	)
 	var column_1 int32
 	err := row.Scan(&column_1)
