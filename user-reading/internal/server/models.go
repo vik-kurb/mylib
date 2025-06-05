@@ -1,9 +1,11 @@
 package server
 
 type UserReading struct {
-	BookID string `json:"book_id"`
-	Status string `json:"status"`
-	Rating int    `json:"rating"`
+	BookID     string `json:"book_id"`
+	Status     string `json:"status"`
+	Rating     int    `json:"rating"`
+	StartDate  string `json:"start_date,omitempty"`
+	FinishDate string `json:"finish_date,omitempty"`
 }
 
 type ErrorResponse struct {

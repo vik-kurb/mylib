@@ -15,9 +15,11 @@ import (
 )
 
 type parsedUserReading struct {
-	bookID uuid.UUID
-	status database.ReadingStatus
-	rating int32
+	bookID     uuid.UUID
+	status     database.ReadingStatus
+	rating     int32
+	startDate  sql.NullTime
+	finishDate sql.NullTime
 }
 
 type bookReadInfo struct {
@@ -48,7 +50,12 @@ func parseUserReading(r *http.Request) (parsedUserReading, error) {
 	if err != nil {
 		return parsedUserReading{}, err
 	}
-	res := parsedUserReading{bookID: bookUUID, status: readingStatus}
+	startDate := common.ToNullTime(request.StartDate)
+	finishDate := common.ToNullTime(request.FinishDate)
+	if startDate.Valid && finishDate.Valid && startDate.Time.After(finishDate.Time) {
+		return parsedUserReading{}, errors.New("Invalid start and finish dates")
+	}
+	res := parsedUserReading{bookID: bookUUID, status: readingStatus, startDate: startDate, finishDate: finishDate}
 	if readingStatus == database.ReadingStatusFinished {
 		res.rating = int32(request.Rating)
 	}
@@ -144,10 +151,12 @@ func (cfg *ApiConfig) HandlePostApiUserReadingPath(w http.ResponseWriter, r *htt
 	dbErr := queries.CreateUserReading(
 		r.Context(),
 		database.CreateUserReadingParams{
-			UserID: userUUID,
-			BookID: userReading.bookID,
-			Status: userReading.status,
-			Rating: userReading.rating})
+			UserID:     userUUID,
+			BookID:     userReading.bookID,
+			Status:     userReading.status,
+			Rating:     userReading.rating,
+			StartDate:  userReading.startDate,
+			FinishDate: userReading.finishDate})
 	if dbErr != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
 		return

@@ -7,22 +7,25 @@ package database
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 )
 
 const createUserReading = `-- name: CreateUserReading :exec
-INSERT INTO user_reading (user_id, book_id, status, rating)
+INSERT INTO user_reading (user_id, book_id, status, rating, start_date, finish_date)
 VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5, $6
 )
 `
 
 type CreateUserReadingParams struct {
-	UserID uuid.UUID
-	BookID uuid.UUID
-	Status ReadingStatus
-	Rating int32
+	UserID     uuid.UUID
+	BookID     uuid.UUID
+	Status     ReadingStatus
+	Rating     int32
+	StartDate  sql.NullTime
+	FinishDate sql.NullTime
 }
 
 func (q *Queries) CreateUserReading(ctx context.Context, arg CreateUserReadingParams) error {
@@ -31,6 +34,8 @@ func (q *Queries) CreateUserReading(ctx context.Context, arg CreateUserReadingPa
 		arg.BookID,
 		arg.Status,
 		arg.Rating,
+		arg.StartDate,
+		arg.FinishDate,
 	)
 	return err
 }

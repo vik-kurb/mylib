@@ -5,6 +5,7 @@
 package database
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 	"time"
@@ -56,10 +57,12 @@ func (ns NullReadingStatus) Value() (driver.Value, error) {
 }
 
 type UserReading struct {
-	UserID    uuid.UUID
-	BookID    uuid.UUID
-	Status    ReadingStatus
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Rating    int32
+	UserID     uuid.UUID
+	BookID     uuid.UUID
+	Status     ReadingStatus
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	Rating     int32
+	StartDate  sql.NullTime
+	FinishDate sql.NullTime
 }
