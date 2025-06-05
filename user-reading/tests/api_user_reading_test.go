@@ -423,6 +423,7 @@ func TestGetUserReading(t *testing.T) {
 
 	type testCase struct {
 		name               string
+		queryStatus        string
 		usersData          usersServiceData
 		libraryData        libraryServiceData
 		dbUserReadings     []server.UserReading
@@ -475,6 +476,25 @@ func TestGetUserReading(t *testing.T) {
 			expectedResponse: []server.ResponseUserReading{
 				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}, Status: "finished", Rating: 6}},
 		},
+		{
+			name:               "filter_by_query_status",
+			queryStatus:        "reading",
+			usersData:          usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:        libraryServiceData{statusCode: http.StatusOK, booksInfo: []clients.ResponseBookFullInfo{{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}}, {ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}}}},
+			dbUserReadings:     []server.UserReading{{BookID: book1.String(), Status: "finished", Rating: 6}, {BookID: book2.String(), Status: "reading", Rating: 3}},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse: []server.ResponseUserReading{
+				{ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}, Status: "reading", Rating: 3}},
+		},
+		{
+			name:               "invalid_query_status",
+			queryStatus:        "invalid_status",
+			usersData:          usersServiceData{userID: userID, authHeader: "Authorization", authToken: "Bearer access_token", statusCode: http.StatusOK},
+			libraryData:        libraryServiceData{statusCode: http.StatusOK, booksInfo: []clients.ResponseBookFullInfo{{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}}, {ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}}}},
+			dbUserReadings:     []server.UserReading{{BookID: book1.String(), Status: "finished", Rating: 6}, {BookID: book2.String(), Status: "reading", Rating: 3}},
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse:   nil,
+		},
 	}
 
 	for _, tc := range tests {
@@ -492,7 +512,11 @@ func TestGetUserReading(t *testing.T) {
 			defer libraryServer.Close()
 
 			client := &http.Client{}
-			request, err := http.NewRequest(http.MethodGet, s.URL+server.ApiUserReadingPath, nil)
+			url := s.URL + server.ApiUserReadingPath
+			if tc.queryStatus != "" {
+				url += "?status=" + tc.queryStatus
+			}
+			request, err := http.NewRequest(http.MethodGet, url, nil)
 			assert.NoError(t, err)
 			request.Header.Add(tc.usersData.authHeader, tc.usersData.authToken)
 

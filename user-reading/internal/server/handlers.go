@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -244,20 +246,46 @@ func (cfg *ApiConfig) HandleDeleteApiUserReadingPath(w http.ResponseWriter, r *h
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func getBookIDs(userReading []database.GetUserReadingRow) []string {
+func getBookIDs(userReading []ResponseUserReading) []string {
 	res := make([]string, 0, len(userReading))
 	for _, book := range userReading {
-		res = append(res, book.BookID.String())
+		res = append(res, book.ID)
 	}
 	return res
 }
 
-func getBookToReadInfo(userReading []database.GetUserReadingRow) map[string]bookReadInfo {
-	res := make(map[string]bookReadInfo)
+func getBookToResponseReading(userReading []ResponseUserReading) map[string]ResponseUserReading {
+	res := make(map[string]ResponseUserReading)
 	for _, book := range userReading {
-		res[book.BookID.String()] = bookReadInfo{status: string(book.Status), rating: int(book.Rating)}
+		res[book.ID] = book
 	}
 	return res
+}
+
+func getUserReading(db *sql.DB, userID uuid.UUID, ctx context.Context) ([]ResponseUserReading, error) {
+	queries := database.New(db)
+	userReading, dbErr := queries.GetUserReading(ctx, userID)
+	if dbErr != nil {
+		return nil, dbErr
+	}
+	res := make([]ResponseUserReading, 0, len(userReading))
+	for _, book := range userReading {
+		res = append(res, ResponseUserReading{ID: book.BookID.String(), Status: string(book.Status), Rating: int(book.Rating)})
+	}
+	return res, nil
+}
+
+func getUserReadingByStatus(db *sql.DB, userID uuid.UUID, status database.ReadingStatus, ctx context.Context) ([]ResponseUserReading, error) {
+	queries := database.New(db)
+	userReading, dbErr := queries.GetUserReadingByStatus(ctx, database.GetUserReadingByStatusParams{UserID: userID, Status: status})
+	if dbErr != nil {
+		return nil, dbErr
+	}
+	res := make([]ResponseUserReading, 0, len(userReading))
+	for _, book := range userReading {
+		res = append(res, ResponseUserReading{ID: book.BookID.String(), Status: string(status), Rating: int(book.Rating)})
+	}
+	return res, nil
 }
 
 // @Summary Get user reading
@@ -265,6 +293,7 @@ func getBookToReadInfo(userReading []database.GetUserReadingRow) map[string]book
 // @Tags User reading
 // @Accept json
 // @Produce json
+// @Param status query string false "Reading status"
 // @Success 200 {array} clients.ResponseBookFullInfo "User reading"
 // @Failure 401 {object} ErrorResponse "Unauthorized"
 // @Failure 500 {object} ErrorResponse
@@ -285,10 +314,20 @@ func (cfg *ApiConfig) HandleGetApiUserReadingPath(w http.ResponseWriter, r *http
 		return
 	}
 
-	queries := database.New(cfg.DB)
-	userReading, dbErr := queries.GetUserReading(r.Context(), userID)
-	if dbErr != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, dbErr.Error())
+	requestStatus := r.URL.Query().Get("status")
+	userReading := []ResponseUserReading{}
+	if requestStatus == "" {
+		userReading, err = getUserReading(cfg.DB, userID, r.Context())
+	} else {
+		dbStatus, err := mapUserReadingStatus(requestStatus)
+		if err != nil {
+			common.RespondWithError(w, http.StatusBadRequest, "Unknown reading status")
+			return
+		}
+		userReading, err = getUserReadingByStatus(cfg.DB, userID, dbStatus, r.Context())
+	}
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if len(userReading) == 0 {
@@ -306,14 +345,16 @@ func (cfg *ApiConfig) HandleGetApiUserReadingPath(w http.ResponseWriter, r *http
 		common.RespondWithError(w, http.StatusInternalServerError, "Failed to get books info")
 		return
 	}
-	bookToReadInfo := getBookToReadInfo(userReading)
+	bookToResponseReading := getBookToResponseReading(userReading)
 	response := []ResponseUserReading{}
 	for _, bookInfo := range booksInfo {
-		readInfo, ok := bookToReadInfo[bookInfo.ID]
+		responseReading, ok := bookToResponseReading[bookInfo.ID]
 		if !ok {
 			continue
 		}
-		response = append(response, ResponseUserReading{ID: bookInfo.ID, Title: bookInfo.Title, Authors: bookInfo.Authors, Status: readInfo.status, Rating: readInfo.rating})
+		responseReading.Title = bookInfo.Title
+		responseReading.Authors = bookInfo.Authors
+		response = append(response, responseReading)
 	}
 
 	common.RespondWithJSON(w, http.StatusOK, response, nil)
