@@ -86,13 +86,6 @@ func cleanupDB(db *sql.DB) {
 	}
 }
 
-func sqlNULLTimeToString(date sql.NullTime) string {
-	if date.Valid {
-		return date.Time.Format(common.DateFormat)
-	}
-	return ""
-}
-
 func getDBUserReading(t *testing.T, db *sql.DB, userID uuid.UUID) []server.UserReading {
 	rows, err := db.Query(selectUserReading, userID)
 	if err != nil {
@@ -108,8 +101,8 @@ func getDBUserReading(t *testing.T, db *sql.DB, userID uuid.UUID) []server.UserR
 		if err != nil {
 			log.Fatal("Error scanning row:", err)
 		}
-		ur.StartDate = sqlNULLTimeToString(startDate)
-		ur.FinishDate = sqlNULLTimeToString(finishDate)
+		ur.StartDate = common.NullTimeToString(startDate)
+		ur.FinishDate = common.NullTimeToString(finishDate)
 		user_readings = append(user_readings, ur)
 	}
 
