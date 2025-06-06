@@ -240,6 +240,15 @@ func TestGetAuthorsID(t *testing.T) {
 			expectedAuthor:     server.ResponseAuthorFullInfo{FullName: "Alexander Pushkin", BirthDate: "06.06.1799", DeathDate: "10.02.1837"},
 		},
 		{
+			name: "success_no_dates",
+			dbAuthors: []author{
+				{id: authorID1, fullName: "Alexander Pushkin"},
+			},
+			requestAuthor:      authorID1.String(),
+			expectedStatusCode: http.StatusOK,
+			expectedAuthor:     server.ResponseAuthorFullInfo{FullName: "Alexander Pushkin"},
+		},
+		{
 			name:               "not_found",
 			dbAuthors:          nil,
 			requestAuthor:      authorID1.String(),

@@ -124,7 +124,7 @@ func (cfg *ApiConfig) HandleGetApiAuthorsID(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	common.RespondWithJSON(w, http.StatusOK, ResponseAuthorFullInfo{FullName: author.FullName, BirthDate: author.BirthDate.Time.Format(common.DateFormat), DeathDate: author.DeathDate.Time.Format(common.DateFormat)}, nil)
+	common.RespondWithJSON(w, http.StatusOK, ResponseAuthorFullInfo{FullName: author.FullName, BirthDate: common.NullTimeToString(author.BirthDate), DeathDate: common.NullTimeToString(author.DeathDate)}, nil)
 }
 
 // @Summary Delete author
