@@ -32,13 +32,21 @@ const docTemplate = `{
                     "User reading"
                 ],
                 "summary": "Get user reading",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Reading status",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "User reading",
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/clients.ResponseBookFullInfo"
+                                "$ref": "#/definitions/server.ResponseUserReading"
                             }
                         }
                     },
@@ -108,6 +116,48 @@ const docTemplate = `{
             }
         },
         "/api/authors/{bookID}": {
+            "get": {
+                "description": "Gets one user reading full info from DB. Uses access token from an HTTP-only cookie",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User reading"
+                ],
+                "summary": "Get one user reading full info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Book ID",
+                        "name": "bookID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User reading full info",
+                        "schema": {
+                            "$ref": "#/definitions/server.ResponseUserReadingFullInfo"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "description": "Deletes user reading from DB. Uses access token from an HTTP-only cookie",
                 "consumes": [
@@ -182,7 +232,15 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "clients.ResponseBookFullInfo": {
+        "server.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "server.ResponseUserReading": {
             "type": "object",
             "properties": {
                 "authors": {
@@ -194,15 +252,42 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "rating": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
                 "title": {
                     "type": "string"
                 }
             }
         },
-        "server.ErrorResponse": {
+        "server.ResponseUserReadingFullInfo": {
             "type": "object",
             "properties": {
-                "error": {
+                "authors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "finish_date": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "rating": {
+                    "type": "integer"
+                },
+                "start_date": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "title": {
                     "type": "string"
                 }
             }
@@ -211,6 +296,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "book_id": {
+                    "type": "string"
+                },
+                "finish_date": {
+                    "type": "string"
+                },
+                "rating": {
+                    "type": "integer"
+                },
+                "start_date": {
                     "type": "string"
                 },
                 "status": {

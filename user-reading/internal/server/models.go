@@ -19,3 +19,9 @@ type ResponseUserReading struct {
 	Status  string   `json:"status"`
 	Rating  int      `json:"rating"`
 }
+
+type ResponseUserReadingFullInfo struct {
+	ResponseUserReading
+	StartDate  string `json:"start_date,omitempty"`
+	FinishDate string `json:"finish_date,omitempty"`
+}

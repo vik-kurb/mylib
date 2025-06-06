@@ -14,3 +14,6 @@ Deletes user reading from DB. Uses access token from an HTTP-only cookie
 
 ### GET /api/user-reading
 Gets user reading from DB. Uses access token from an HTTP-only cookie
+
+### GET /api/user-reading/{bookID}
+Gets user reading full info from DB. Uses access token from an HTTP-only cookie

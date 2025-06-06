@@ -303,7 +303,7 @@ func getUserReadingByStatus(db *sql.DB, userID uuid.UUID, status database.Readin
 // @Accept json
 // @Produce json
 // @Param status query string false "Reading status"
-// @Success 200 {array} clients.ResponseBookFullInfo "User reading"
+// @Success 200 {array} ResponseUserReading "User reading"
 // @Failure 401 {object} ErrorResponse "Unauthorized"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/authors [get]
@@ -366,5 +366,75 @@ func (cfg *ApiConfig) HandleGetApiUserReadingPath(w http.ResponseWriter, r *http
 		response = append(response, responseReading)
 	}
 
+	common.RespondWithJSON(w, http.StatusOK, response, nil)
+}
+
+// @Summary Get one user reading full info
+// @Description Gets one user reading full info from DB. Uses access token from an HTTP-only cookie
+// @Tags User reading
+// @Accept json
+// @Produce json
+// @Param bookID path string true "Book ID"
+// @Success 200 {object} ResponseUserReadingFullInfo "User reading full info"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/authors/{bookID} [get]
+func (cfg *ApiConfig) HandleGetApiUserReadingByBookPath(w http.ResponseWriter, r *http.Request) {
+	if cfg.DB == nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
+		return
+	}
+
+	userID, usersStatusCode, err := clients.GetUser(r.Header, cfg.UsersServiceHost)
+	if usersStatusCode == http.StatusUnauthorized {
+		common.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to check authorization")
+		return
+	}
+
+	bookID, err := uuid.Parse(r.PathValue("bookID"))
+	if err != nil {
+		common.RespondWithError(w, http.StatusBadRequest, "Invalid book id")
+		return
+	}
+
+	queries := database.New(cfg.DB)
+	userReading, dbErr := queries.GetUserReadingByBook(r.Context(), database.GetUserReadingByBookParams{UserID: userID, BookID: bookID})
+	if dbErr == sql.ErrNoRows {
+		common.RespondWithError(w, http.StatusNotFound, "Unknown user book")
+		return
+	}
+	if dbErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to get user reading")
+		return
+	}
+
+	statusCode, booksInfo, err := clients.GetBooksInfo([]string{bookID.String()}, cfg.LibraryServiceHost)
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if statusCode != http.StatusOK {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to get books info")
+		return
+	}
+	if len(booksInfo) == 0 {
+		common.RespondWithError(w, http.StatusNotFound, "Unknown book")
+		return
+	}
+	response := ResponseUserReadingFullInfo{
+		ResponseUserReading: ResponseUserReading{
+			ID:      bookID.String(),
+			Title:   booksInfo[0].Title,
+			Authors: booksInfo[0].Authors,
+			Status:  string(userReading.Status),
+			Rating:  int(userReading.Rating),
+		},
+		StartDate:  common.NullTimeToString(userReading.StartDate),
+		FinishDate: common.NullTimeToString(userReading.FinishDate),
+	}
 	common.RespondWithJSON(w, http.StatusOK, response, nil)
 }

@@ -1,6 +1,11 @@
 basePath: /
 definitions:
-  clients.ResponseBookFullInfo:
+  server.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  server.ResponseUserReading:
     properties:
       authors:
         items:
@@ -8,17 +13,41 @@ definitions:
         type: array
       id:
         type: string
+      rating:
+        type: integer
+      status:
+        type: string
       title:
         type: string
     type: object
-  server.ErrorResponse:
+  server.ResponseUserReadingFullInfo:
     properties:
-      error:
+      authors:
+        items:
+          type: string
+        type: array
+      finish_date:
+        type: string
+      id:
+        type: string
+      rating:
+        type: integer
+      start_date:
+        type: string
+      status:
+        type: string
+      title:
         type: string
     type: object
   server.UserReading:
     properties:
       book_id:
+        type: string
+      finish_date:
+        type: string
+      rating:
+        type: integer
+      start_date:
         type: string
       status:
         type: string
@@ -39,6 +68,11 @@ paths:
       - application/json
       description: Gets user reading from DB. Uses access token from an HTTP-only
         cookie
+      parameters:
+      - description: Reading status
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:
@@ -46,7 +80,7 @@ paths:
           description: User reading
           schema:
             items:
-              $ref: '#/definitions/clients.ResponseBookFullInfo'
+              $ref: '#/definitions/server.ResponseUserReading'
             type: array
         "401":
           description: Unauthorized
@@ -125,6 +159,35 @@ paths:
           schema:
             $ref: '#/definitions/server.ErrorResponse'
       summary: Delete user reading
+      tags:
+      - User reading
+    get:
+      consumes:
+      - application/json
+      description: Gets one user reading full info from DB. Uses access token from
+        an HTTP-only cookie
+      parameters:
+      - description: Book ID
+        in: path
+        name: bookID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User reading full info
+          schema:
+            $ref: '#/definitions/server.ResponseUserReadingFullInfo'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Get one user reading full info
       tags:
       - User reading
   /ping:
