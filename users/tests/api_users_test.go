@@ -198,6 +198,8 @@ func TestGetUser(t *testing.T) {
 	type testCase struct {
 		name               string
 		token              string
+		dbUser             User
+		requestUserID      string
 		expectedStatusCode int
 		expectedUser       server.ResponseUser
 	}
@@ -205,20 +207,37 @@ func TestGetUser(t *testing.T) {
 		{
 			name:               "authorized_as_request_user",
 			token:              "",
+			dbUser:             User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"},
 			expectedStatusCode: http.StatusOK,
 			expectedUser:       server.ResponseUser{LoginName: "login", Email: "some_email@email.com", BirthDate: "09.05.1956"},
 		},
 		{
 			name:               "authorized_as_another_user",
 			token:              accessToken,
+			dbUser:             User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"},
 			expectedStatusCode: http.StatusOK,
 			expectedUser:       server.ResponseUser{LoginName: "login"},
 		},
 		{
 			name:               "unauthorized",
 			token:              "invalid_token",
+			dbUser:             User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"},
 			expectedStatusCode: http.StatusOK,
 			expectedUser:       server.ResponseUser{LoginName: "login"},
+		},
+		{
+			name:               "authorized_as_request_user_no_date",
+			token:              "",
+			dbUser:             User{loginName: "login", email: "some_email@email.com", birthDate: sql.NullTime{}, hashedPassword: "304854e2e79de0f96dc5477fef38a18f"},
+			expectedStatusCode: http.StatusOK,
+			expectedUser:       server.ResponseUser{LoginName: "login", Email: "some_email@email.com"},
+		},
+		{
+			name:               "user_not_found",
+			token:              "",
+			dbUser:             User{loginName: "login", email: "some_email@email.com", birthDate: sql.NullTime{}, hashedPassword: "304854e2e79de0f96dc5477fef38a18f"},
+			requestUserID:      uuid.NewString(),
+			expectedStatusCode: http.StatusNotFound,
 		},
 	}
 	for _, tc := range testCases {
@@ -227,8 +246,10 @@ func TestGetUser(t *testing.T) {
 			assert.NoError(t, err)
 			defer common.CloseDB(db)
 			cleanupDB(db)
-			user := User{loginName: "login", email: "some_email@email.com", birthDate: toSqlNullTime("09.05.1956"), hashedPassword: "304854e2e79de0f96dc5477fef38a18f"}
-			userID := addDBUser(db, user)
+			userID := addDBUser(db, tc.dbUser)
+			if tc.requestUserID != "" {
+				userID = tc.requestUserID
+			}
 
 			s := setupTestServer(db)
 			defer s.Close()
@@ -248,8 +269,10 @@ func TestGetUser(t *testing.T) {
 			defer common.CloseResponseBody(response)
 			assert.Equal(t, tc.expectedStatusCode, response.StatusCode)
 
-			responseUser := getUserFromResponse(response)
-			assert.Equal(t, responseUser, tc.expectedUser)
+			if tc.expectedStatusCode == http.StatusOK {
+				responseUser := getUserFromResponse(response)
+				assert.Equal(t, responseUser, tc.expectedUser)
+			}
 		})
 	}
 }

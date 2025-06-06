@@ -20,7 +20,7 @@ type ResponseToken struct {
 type ResponseUser struct {
 	LoginName string `json:"login"`
 	Email     string `json:"email"`
-	BirthDate string `json:"birth_date"`
+	BirthDate string `json:"birth_date,omitempty"`
 }
 
 type ResponseUserID struct {

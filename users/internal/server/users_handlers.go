@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -180,16 +181,18 @@ func (cfg *ApiConfig) HandleGetApiUsers(w http.ResponseWriter, r *http.Request) 
 	authUserID, _ := checkAuthorization(cfg, r)
 
 	user, userErr := cfg.DB.GetUserByID(r.Context(), requestUserUUID)
-	if userErr != nil {
+	if userErr == sql.ErrNoRows {
 		common.RespondWithError(w, http.StatusNotFound, userErr.Error())
+		return
+	}
+	if userErr != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, userErr.Error())
 		return
 	}
 
 	response := ResponseUser{LoginName: user.LoginName}
 	if authUserID == requestUserUUID {
-		if user.BirthDate.Valid {
-			response.BirthDate = user.BirthDate.Time.Format(common.DateFormat)
-		}
+		response.BirthDate = common.NullTimeToString(user.BirthDate)
 		response.Email = user.Email
 	}
 	common.RespondWithJSON(w, http.StatusOK, response, nil)

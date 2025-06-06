@@ -83,11 +83,11 @@ func (cfg *ApiConfig) HandlePostAuthLogin(w http.ResponseWriter, r *http.Request
 	}
 
 	user, getUserErr := cfg.DB.GetUserByEmail(r.Context(), request.Email)
+	if getUserErr == sql.ErrNoRows {
+		common.RespondWithError(w, http.StatusNotFound, "Not found user")
+		return
+	}
 	if getUserErr != nil {
-		if getUserErr == sql.ErrNoRows {
-			common.RespondWithError(w, http.StatusNotFound, "Not found user")
-			return
-		}
 		common.RespondWithError(w, http.StatusInternalServerError, getUserErr.Error())
 		return
 	}
@@ -120,11 +120,11 @@ func (cfg *ApiConfig) HandlePostAuthRefresh(w http.ResponseWriter, r *http.Reque
 	refreshToken := cookie.Value
 
 	userID, getUserErr := cfg.DB.GetUserByRefreshToken(r.Context(), refreshToken)
+	if getUserErr == sql.ErrNoRows {
+		common.RespondWithError(w, http.StatusUnauthorized, "Not found user")
+		return
+	}
 	if getUserErr != nil {
-		if getUserErr == sql.ErrNoRows {
-			common.RespondWithError(w, http.StatusUnauthorized, "Not found user")
-			return
-		}
 		common.RespondWithError(w, http.StatusInternalServerError, getUserErr.Error())
 		return
 	}
