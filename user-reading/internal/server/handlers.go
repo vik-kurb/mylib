@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
 
 	"github.com/bakurvik/mylib/user-reading/internal/clients"
 	"github.com/bakurvik/mylib/user-reading/internal/database"
@@ -345,7 +346,7 @@ func (cfg *ApiConfig) HandleGetApiUserReadingPath(w http.ResponseWriter, r *http
 	}
 
 	bookIDs := getBookIDs(userReading)
-	statusCode, booksInfo, err := clients.GetBooksInfo(bookIDs, cfg.LibraryServiceHost)
+	statusCode, booksInfo, err := clients.GetBooksInfo(bookIDs, cfg.LibraryServiceHost, cfg.UseLibraryBooksCache)
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -365,6 +366,7 @@ func (cfg *ApiConfig) HandleGetApiUserReadingPath(w http.ResponseWriter, r *http
 		responseReading.Authors = bookInfo.Authors
 		response = append(response, responseReading)
 	}
+	sort.Slice(response, func(i, j int) bool { return response[i].Title < response[j].Title })
 
 	common.RespondWithJSON(w, http.StatusOK, response, nil)
 }
@@ -412,7 +414,7 @@ func (cfg *ApiConfig) HandleGetApiUserReadingByBookPath(w http.ResponseWriter, r
 		return
 	}
 
-	statusCode, booksInfo, err := clients.GetBooksInfo([]string{bookID.String()}, cfg.LibraryServiceHost)
+	statusCode, booksInfo, err := clients.GetBooksInfo([]string{bookID.String()}, cfg.LibraryServiceHost, cfg.UseLibraryBooksCache)
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return

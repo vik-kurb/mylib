@@ -24,6 +24,14 @@ import (
 // @host localhost:8080
 // @BasePath /
 
+func getUseLibraryBooksCache() bool {
+	useCache := os.Getenv("USE_LIBRARY_BOOKS_CACHE")
+	if useCache == "true" {
+		return true
+	}
+	return false
+}
+
 func main() {
 	db, err := common.SetupDB("./.env")
 	if err != nil {
@@ -31,7 +39,7 @@ func main() {
 	}
 
 	sm := http.NewServeMux()
-	apiCfg := server.ApiConfig{DB: db, UsersServiceHost: os.Getenv("USERS_SERVICE_HOST"), LibraryServiceHost: os.Getenv("LIBRARY_SERVICE_HOST")}
+	apiCfg := server.ApiConfig{DB: db, UsersServiceHost: os.Getenv("USERS_SERVICE_HOST"), LibraryServiceHost: os.Getenv("LIBRARY_SERVICE_HOST"), UseLibraryBooksCache: getUseLibraryBooksCache()}
 	server.Handle(sm, &apiCfg)
 
 	s := http.Server{
