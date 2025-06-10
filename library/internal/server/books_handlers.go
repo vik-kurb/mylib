@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"sort"
-	"sync"
 
 	"github.com/google/uuid"
 
@@ -298,64 +297,36 @@ func getUniqueAuthors(bookAuthors []database.GetAuthorsByBooksRow) []uuid.UUID {
 }
 
 func getBooksAndAuthors(ctx context.Context, queries *database.Queries, bookUUIDs []uuid.UUID) ([]database.GetBooksRow, map[uuid.UUID][]string, error) {
-	type dbBooks struct {
-		books []database.GetBooksRow
-		err   error
+	books, err := queries.GetBooks(ctx, bookUUIDs)
+	if err != nil {
+		return nil, nil, err
 	}
-	booksChan := make(chan dbBooks)
-	queriesMU := sync.Mutex{}
-	go func() {
-		queriesMU.Lock()
-		defer queriesMU.Unlock()
-		books, err := queries.GetBooks(ctx, bookUUIDs)
-		booksChan <- dbBooks{books: books, err: err}
-	}()
 
-	type dbBookAuthors struct {
-		bookToAuthors map[uuid.UUID][]string
-		err           error
+	bookAuthors, err := queries.GetAuthorsByBooks(ctx, bookUUIDs)
+	if err != nil {
+		return nil, nil, err
 	}
-	authorsChan := make(chan dbBookAuthors)
-	go func() {
-		queriesMU.Lock()
-		defer queriesMU.Unlock()
-		bookAuthors, err := queries.GetAuthorsByBooks(ctx, bookUUIDs)
-		if err != nil {
-			authorsChan <- dbBookAuthors{err: err}
-			return
-		}
-		authors := getUniqueAuthors(bookAuthors)
-		authorsInfo, err := queries.GetAuthorsByIDs(ctx, authors)
-		if err != nil {
-			authorsChan <- dbBookAuthors{err: err}
-			return
-		}
-		authorToName := make(map[uuid.UUID]string)
-		for _, author := range authorsInfo {
-			authorToName[author.ID] = author.FullName
-		}
-		res := dbBookAuthors{}
-		res.bookToAuthors = make(map[uuid.UUID][]string)
-		for _, bookAuthor := range bookAuthors {
-			authorName := authorToName[bookAuthor.AuthorID]
-			if authorName != "" {
-				res.bookToAuthors[bookAuthor.BookID] = append(res.bookToAuthors[bookAuthor.BookID], authorName)
-			}
-		}
-		for _, authors := range res.bookToAuthors {
-			sort.Strings(authors)
-		}
-		authorsChan <- res
-	}()
-	dbBooksInfo := <-booksChan
-	if dbBooksInfo.err != nil {
-		return nil, nil, dbBooksInfo.err
+	authors := getUniqueAuthors(bookAuthors)
+	authorsInfo, err := queries.GetAuthorsByIDs(ctx, authors)
+	if err != nil {
+		return nil, nil, err
 	}
-	dbAuthorsInfo := <-authorsChan
-	if dbAuthorsInfo.err != nil {
-		return nil, nil, dbAuthorsInfo.err
+	authorToName := make(map[uuid.UUID]string)
+	for _, author := range authorsInfo {
+		authorToName[author.ID] = author.FullName
 	}
-	return dbBooksInfo.books, dbAuthorsInfo.bookToAuthors, nil
+	bookToAuthors := make(map[uuid.UUID][]string)
+	for _, bookAuthor := range bookAuthors {
+		authorName := authorToName[bookAuthor.AuthorID]
+		if authorName != "" {
+			bookToAuthors[bookAuthor.BookID] = append(bookToAuthors[bookAuthor.BookID], authorName)
+		}
+	}
+	for _, authors := range bookToAuthors {
+		sort.Strings(authors)
+	}
+
+	return books, bookToAuthors, nil
 }
 
 // @Summary Get books

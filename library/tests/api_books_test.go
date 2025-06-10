@@ -348,30 +348,30 @@ func TestGetBooks(t *testing.T) {
 				{ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}},
 				{ID: book3.String(), Title: "Title 3", Authors: nil}},
 		},
-		// {
-		// 	name:               "empty request",
-		// 	requestedBooks:     []string{},
-		// 	expectedStatusCode: http.StatusBadRequest,
-		// 	expectedResponse:   nil,
-		// },
-		// {
-		// 	name:               "skip invalid bookID",
-		// 	requestedBooks:     []string{book1.String(), book2.String(), book3.String(), "invalid_book_id"},
-		// 	expectedStatusCode: http.StatusOK,
-		// 	expectedResponse: []server.ResponseBookFullInfo{
-		// 		{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}},
-		// 		{ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}},
-		// 		{ID: book3.String(), Title: "Title 3", Authors: nil}},
-		// },
-		// {
-		// 	name:               "skip unknown bookID",
-		// 	requestedBooks:     []string{book1.String(), book2.String(), book3.String(), uuid.NewString()},
-		// 	expectedStatusCode: http.StatusOK,
-		// 	expectedResponse: []server.ResponseBookFullInfo{
-		// 		{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}},
-		// 		{ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}},
-		// 		{ID: book3.String(), Title: "Title 3", Authors: nil}},
-		// },
+		{
+			name:               "empty request",
+			requestedBooks:     []string{},
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse:   nil,
+		},
+		{
+			name:               "skip invalid bookID",
+			requestedBooks:     []string{book1.String(), book2.String(), book3.String(), "invalid_book_id"},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse: []server.ResponseBookFullInfo{
+				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}},
+				{ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}},
+				{ID: book3.String(), Title: "Title 3", Authors: nil}},
+		},
+		{
+			name:               "skip unknown bookID",
+			requestedBooks:     []string{book1.String(), book2.String(), book3.String(), uuid.NewString()},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse: []server.ResponseBookFullInfo{
+				{ID: book1.String(), Title: "Title 1", Authors: []string{"Author 1"}},
+				{ID: book2.String(), Title: "Title 2", Authors: []string{"Author 1", "Author 2"}},
+				{ID: book3.String(), Title: "Title 3", Authors: nil}},
+		},
 	}
 
 	for _, tc := range tests {
