@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"sync"
 
 	"github.com/google/uuid"
 
@@ -302,7 +303,10 @@ func getBooksAndAuthors(ctx context.Context, queries *database.Queries, bookUUID
 		err   error
 	}
 	booksChan := make(chan dbBooks)
+	queriesMU := sync.Mutex{}
 	go func() {
+		queriesMU.Lock()
+		defer queriesMU.Unlock()
 		books, err := queries.GetBooks(ctx, bookUUIDs)
 		booksChan <- dbBooks{books: books, err: err}
 	}()
@@ -313,6 +317,8 @@ func getBooksAndAuthors(ctx context.Context, queries *database.Queries, bookUUID
 	}
 	authorsChan := make(chan dbBookAuthors)
 	go func() {
+		queriesMU.Lock()
+		defer queriesMU.Unlock()
 		bookAuthors, err := queries.GetAuthorsByBooks(ctx, bookUUIDs)
 		if err != nil {
 			authorsChan <- dbBookAuthors{err: err}
@@ -384,7 +390,6 @@ func (cfg *ApiConfig) HandlePostApiBooksSearch(w http.ResponseWriter, r *http.Re
 	queries := database.New(tx)
 	books, bookToAuthors, err := getBooksAndAuthors(r.Context(), queries, bookUUIDs)
 	if err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, "Failed to get data")
 		return
 	}
 
