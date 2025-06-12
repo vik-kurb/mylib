@@ -4,8 +4,6 @@ import (
 	"log"
 	"sync"
 	"time"
-
-	"github.com/bakurvik/mylib/user-reading/internal/config"
 )
 
 type cacheBookInfo struct {
@@ -70,14 +68,33 @@ func (bc *booksCache) prepareLookup(bookID string, requestBookIDs *[]string, upd
 	}(info)
 }
 
-func CleanupBooksCache(cfg config.BooksCacheConfig) {
-	ticker := time.NewTicker(cfg.CleanupPeriod)
+type Ticker interface {
+	Stop()
+	C() <-chan time.Time
+}
+
+type TimeTicker struct {
+	T *time.Ticker
+}
+
+func (tt *TimeTicker) C() <-chan time.Time {
+	return tt.T.C
+}
+func (tt *TimeTicker) Stop() {
+	tt.T.Stop()
+}
+
+func CleanupBooksCache(oldDataThreshold time.Duration, ticker Ticker) {
 	defer ticker.Stop()
-	for range ticker.C {
+	for {
+		_, ok := <-ticker.C()
+		if !ok {
+			return
+		}
 		keysToDelete := make([]string, 0)
 		bc.mu.Lock()
 		for key, info := range bc.IDToInfo {
-			if time.Since(info.updatedAt) > cfg.CleanupOldDataThreshold {
+			if time.Since(info.updatedAt) > oldDataThreshold {
 				keysToDelete = append(keysToDelete, key)
 			}
 		}

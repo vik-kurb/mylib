@@ -64,7 +64,8 @@ func main() {
 	apiCfg := server.ApiConfig{DB: db, UsersServiceHost: os.Getenv("USERS_SERVICE_HOST"), LibraryServiceHost: os.Getenv("LIBRARY_SERVICE_HOST"), BooksCacheCfg: getBooksCacheConfig()}
 	server.Handle(sm, &apiCfg)
 
-	go clients.CleanupBooksCache(apiCfg.BooksCacheCfg)
+	ticker := time.NewTicker(apiCfg.BooksCacheCfg.CleanupPeriod)
+	go clients.CleanupBooksCache(apiCfg.BooksCacheCfg.CleanupOldDataThreshold, &clients.TimeTicker{T: ticker})
 
 	s := http.Server{
 		Addr:    ":8080",
