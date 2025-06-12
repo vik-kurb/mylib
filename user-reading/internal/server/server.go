@@ -1,7 +1,6 @@
 package server
 
 import (
-	"database/sql"
 	"fmt"
 	"net/http"
 
@@ -12,13 +11,6 @@ const (
 	ApiUserReadingPath = "/api/user-reading"
 	PingPath           = "/ping"
 )
-
-type ApiConfig struct {
-	DB                   *sql.DB
-	UsersServiceHost     string
-	LibraryServiceHost   string
-	UseLibraryBooksCache bool
-}
 
 func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
 	// Ping

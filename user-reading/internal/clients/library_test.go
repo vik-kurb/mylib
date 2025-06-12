@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	common "github.com/bakurvik/mylib-common"
+	"github.com/bakurvik/mylib/user-reading/internal/config"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
@@ -30,13 +31,13 @@ func mockLibraryServer(t *testing.T, statusCode int, response []ResponseBookFull
 	return libraryURL
 }
 
-func TestParseBookIDs(t *testing.T) {
+func TestGetBooksInfo(t *testing.T) {
 	id1 := uuid.New()
 	id2 := uuid.New()
 	id3 := uuid.New()
 	type testCase struct {
 		name                          string
-		useCache                      bool
+		enableCache                   bool
 		libraryStatusCode             int
 		libraryResponse               []ResponseBookFullInfo
 		bookIDs                       []string
@@ -47,7 +48,7 @@ func TestParseBookIDs(t *testing.T) {
 	testCases := []testCase{
 		{
 			name:              "do_not_use_cache",
-			useCache:          false,
+			enableCache:       false,
 			libraryStatusCode: http.StatusOK,
 			libraryResponse: []ResponseBookFullInfo{
 				{ID: id1.String(), Title: "Title 1", Authors: []string{"Author 1", "Author 2"}},
@@ -63,7 +64,7 @@ func TestParseBookIDs(t *testing.T) {
 		},
 		{
 			name:              "cache_is_empty",
-			useCache:          true,
+			enableCache:       true,
 			libraryStatusCode: http.StatusOK,
 			libraryResponse: []ResponseBookFullInfo{
 				{ID: id1.String(), Title: "Title 1", Authors: []string{"Author 1", "Author 2"}},
@@ -79,7 +80,7 @@ func TestParseBookIDs(t *testing.T) {
 		},
 		{
 			name:                          "all_data_from_cache",
-			useCache:                      true,
+			enableCache:                   true,
 			libraryStatusCode:             http.StatusOK,
 			libraryResponse:               []ResponseBookFullInfo{},
 			bookIDs:                       []string{id1.String(), id2.String()},
@@ -92,7 +93,7 @@ func TestParseBookIDs(t *testing.T) {
 		},
 		{
 			name:              "part_data_from_cache",
-			useCache:          true,
+			enableCache:       true,
 			libraryStatusCode: http.StatusOK,
 			libraryResponse: []ResponseBookFullInfo{
 				{ID: id3.String(), Title: "Title 3", Authors: []string{"Author 4", "Author 2"}},
@@ -111,7 +112,7 @@ func TestParseBookIDs(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			libraryHost := mockLibraryServer(t, tc.libraryStatusCode, tc.libraryResponse, tc.expectedLibraryRequestBookIDs)
-			statusCode, books, err := GetBooksInfo(tc.bookIDs, libraryHost.String(), tc.useCache)
+			statusCode, books, err := GetBooksInfo(tc.bookIDs, libraryHost.String(), config.BooksCacheConfig{Enable: tc.enableCache})
 
 			assert.Equal(t, err != nil, tc.hasError)
 			assert.Equal(t, statusCode, tc.libraryStatusCode)

@@ -69,7 +69,9 @@ Environment variables should be set in .env:
 | `USERS_SERVICE_HOST` | Host of users service | `http://users:8080` |
 | `LIBRARY_SERVICE_HOST` | Host of library service | `http://library:8080` |
 | `CORS_ALLOWED_ORIGIN`      | Allowed origin for cross-origin HTTP requests (Access-Control-Allow-Origin response header in CORS middleware) | `http://localhost:5173/` |
-| `USE_LIBRARY_BOOKS_CACHE` | Use cache of books from library service | `false` |
+| `LIBRARY_BOOKS_CACHE_ENABLE` | Enable cache of books from library service | `false` |
+| `LIBRARY_BOOKS_CACHE_CLEANUP_PERIOD_MIN` | Cleanup period of books cache (minutes) | `60` |
+| `LIBRARY_BOOKS_CACHE_CLEANUP_OLD_THRESHOLD_MIN` | Threshold for deleting old data in books cache (minutes) | `60` |
 
 
 ## License

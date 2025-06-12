@@ -4,7 +4,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
+	"github.com/bakurvik/mylib/user-reading/internal/clients"
+	"github.com/bakurvik/mylib/user-reading/internal/config"
 	"github.com/bakurvik/mylib/user-reading/internal/server"
 
 	common "github.com/bakurvik/mylib-common"
@@ -24,12 +27,31 @@ import (
 // @host localhost:8080
 // @BasePath /
 
-func getUseLibraryBooksCache() bool {
-	useCache := os.Getenv("USE_LIBRARY_BOOKS_CACHE")
-	if useCache == "true" {
-		return true
+func getBooksCacheConfig() config.BooksCacheConfig {
+	cfg := config.BooksCacheConfig{
+		Enable:        false,
+		CleanupPeriod: time.Hour,
 	}
-	return false
+
+	useCache := os.Getenv("LIBRARY_BOOKS_CACHE_ENABLE")
+	if useCache == "true" {
+		cfg.Enable = true
+	}
+
+	period, err := time.ParseDuration(os.Getenv("LIBRARY_BOOKS_CACHE_CLEANUP_PERIOD_MIN"))
+	if err != nil {
+		log.Print("Invalid books cache cleanup period: ", period)
+	} else {
+		cfg.CleanupPeriod = period
+	}
+
+	threshold, err := time.ParseDuration(os.Getenv("LIBRARY_BOOKS_CACHE_CLEANUP_OLD_THRESHOLD_MIN"))
+	if err != nil {
+		log.Print("Invalid books cache cleanup threshold: ", threshold)
+	} else {
+		cfg.CleanupOldDataThreshold = threshold
+	}
+	return cfg
 }
 
 func main() {
@@ -39,8 +61,10 @@ func main() {
 	}
 
 	sm := http.NewServeMux()
-	apiCfg := server.ApiConfig{DB: db, UsersServiceHost: os.Getenv("USERS_SERVICE_HOST"), LibraryServiceHost: os.Getenv("LIBRARY_SERVICE_HOST"), UseLibraryBooksCache: getUseLibraryBooksCache()}
+	apiCfg := server.ApiConfig{DB: db, UsersServiceHost: os.Getenv("USERS_SERVICE_HOST"), LibraryServiceHost: os.Getenv("LIBRARY_SERVICE_HOST"), BooksCacheCfg: getBooksCacheConfig()}
 	server.Handle(sm, &apiCfg)
+
+	go clients.CleanupBooksCache(apiCfg.BooksCacheCfg)
 
 	s := http.Server{
 		Addr:    ":8080",

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	common "github.com/bakurvik/mylib-common"
+	"github.com/bakurvik/mylib/user-reading/internal/config"
 	"github.com/google/uuid"
 )
 
@@ -20,61 +21,13 @@ func CheckBook(bookID uuid.UUID, host string) (int, error) {
 	return response.StatusCode, nil
 }
 
-type cacheBookInfo struct {
-	info  ResponseBookFullInfo
-	ready chan struct{}
-}
-
-type booksCache struct {
-	IDToInfo map[string]*cacheBookInfo
-	mu       sync.Mutex
-}
-
-var bc = booksCache{IDToInfo: make(map[string]*cacheBookInfo)}
-
-func (bc *booksCache) closeChannels(bookIDs []string) {
-	for _, bookID := range bookIDs {
-		bc.mu.Lock()
-		cacheBook, ok := bc.IDToInfo[bookID]
-		if ok {
-			select {
-			case <-cacheBook.ready:
-			default:
-				close(cacheBook.ready)
-			}
-			if cacheBook.info.ID == "" {
-				delete(bc.IDToInfo, bookID)
-			}
-		}
-		bc.mu.Unlock()
-	}
-}
-
 func GetBooksInfoWithCache(bookIDs []string, host string) (int, []ResponseBookFullInfo, error) {
 	request := RequestBookIDs{}
 	booksInfo := []ResponseBookFullInfo{}
 	booksInfoMU := sync.Mutex{}
 	wg := sync.WaitGroup{}
 	for _, bookID := range bookIDs {
-		bc.mu.Lock()
-		info, ok := bc.IDToInfo[bookID]
-		if !ok {
-			request.BookIDs = append(request.BookIDs, bookID)
-			cacheBook := cacheBookInfo{ready: make(chan struct{})}
-			bc.IDToInfo[bookID] = &cacheBook
-			info = &cacheBook
-		}
-		bc.mu.Unlock()
-		wg.Add(1)
-		go func(info *cacheBookInfo) {
-			defer wg.Done()
-			<-info.ready
-			booksInfoMU.Lock()
-			if info.info.ID != "" {
-				booksInfo = append(booksInfo, info.info)
-			}
-			booksInfoMU.Unlock()
-		}(info)
+		bc.prepareLookup(bookID, &request.BookIDs, &wg, &booksInfoMU, &booksInfo)
 	}
 	if len(request.BookIDs) == 0 {
 		wg.Wait()
@@ -96,11 +49,7 @@ func GetBooksInfoWithCache(bookIDs []string, host string) (int, []ResponseBookFu
 		return 0, nil, err
 	}
 	for _, bookInfo := range responseData {
-		bc.mu.Lock()
-		if _, ok := bc.IDToInfo[bookInfo.ID]; ok {
-			bc.IDToInfo[bookInfo.ID].info = bookInfo
-		}
-		bc.mu.Unlock()
+		bc.update(bookInfo)
 	}
 	bc.closeChannels(request.BookIDs)
 
@@ -108,8 +57,8 @@ func GetBooksInfoWithCache(bookIDs []string, host string) (int, []ResponseBookFu
 	return response.StatusCode, booksInfo, nil
 }
 
-func GetBooksInfo(bookIDs []string, host string, useCache bool) (int, []ResponseBookFullInfo, error) {
-	if useCache {
+func GetBooksInfo(bookIDs []string, host string, cfg config.BooksCacheConfig) (int, []ResponseBookFullInfo, error) {
+	if cfg.Enable {
 		return GetBooksInfoWithCache(bookIDs, host)
 	}
 	requestBook := RequestBookIDs{BookIDs: bookIDs}

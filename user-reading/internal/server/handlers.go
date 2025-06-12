@@ -346,7 +346,7 @@ func (cfg *ApiConfig) HandleGetApiUserReadingPath(w http.ResponseWriter, r *http
 	}
 
 	bookIDs := getBookIDs(userReading)
-	statusCode, booksInfo, err := clients.GetBooksInfo(bookIDs, cfg.LibraryServiceHost, cfg.UseLibraryBooksCache)
+	statusCode, booksInfo, err := clients.GetBooksInfo(bookIDs, cfg.LibraryServiceHost, cfg.BooksCacheCfg)
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -414,7 +414,7 @@ func (cfg *ApiConfig) HandleGetApiUserReadingByBookPath(w http.ResponseWriter, r
 		return
 	}
 
-	statusCode, booksInfo, err := clients.GetBooksInfo([]string{bookID.String()}, cfg.LibraryServiceHost, cfg.UseLibraryBooksCache)
+	statusCode, booksInfo, err := clients.GetBooksInfo([]string{bookID.String()}, cfg.LibraryServiceHost, cfg.BooksCacheCfg)
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
