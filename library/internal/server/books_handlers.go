@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"sort"
@@ -136,7 +137,7 @@ func (cfg *ApiConfig) HandlePostApiBooks(w http.ResponseWriter, r *http.Request)
 		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
 		return
 	}
-	defer handleTx(tx, &err, w)
+	defer handleTx(tx, &err, w, nil)
 
 	queries := database.New(tx)
 
@@ -190,13 +191,14 @@ func (cfg *ApiConfig) HandlePutApiBooks(w http.ResponseWriter, r *http.Request) 
 		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
 		return
 	}
-	defer handleTx(tx, &err, w)
+	responseStatus := http.StatusInternalServerError
+	defer handleTx(tx, &err, w, &responseStatus)
 
 	queries := database.New(tx)
 
 	count, err := queries.UpdateBook(r.Context(), database.UpdateBookParams{ID: bookUUID, Title: request.Title})
 	if count == 0 {
-		common.RespondWithError(w, http.StatusNotFound, "Unknown book id")
+		responseStatus = http.StatusNotFound
 		return
 	}
 	if err != nil {
@@ -264,18 +266,23 @@ func parseBookIDs(r *http.Request) ([]uuid.UUID, error) {
 	return bookUUIDs, nil
 }
 
-func handleTx(tx *sql.Tx, err *error, w http.ResponseWriter) {
+func handleTx(tx *sql.Tx, err *error, w http.ResponseWriter, responseStatus *int) {
 	if p := recover(); p != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			log.Print("Failed to rollback transaction ", rollbackErr)
 		}
-		panic(p)
+		common.RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("panic recovered in handleTx: %v", p))
+		return
 	}
 	if err != nil && *err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			log.Print("Failed to rollback transaction ", rollbackErr)
 		}
-		common.RespondWithError(w, http.StatusInternalServerError, (*err).Error())
+		if responseStatus == nil {
+			common.RespondWithError(w, http.StatusInternalServerError, (*err).Error())
+			return
+		}
+		common.RespondWithError(w, *responseStatus, (*err).Error())
 		return
 	}
 	if commitErr := tx.Commit(); commitErr != nil {
@@ -356,7 +363,7 @@ func (cfg *ApiConfig) HandlePostApiBooksSearch(w http.ResponseWriter, r *http.Re
 		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
 		return
 	}
-	defer handleTx(tx, &err, w)
+	defer handleTx(tx, &err, w, nil)
 
 	queries := database.New(tx)
 	books, bookToAuthors, err := getBooksAndAuthors(r.Context(), queries, bookUUIDs)
@@ -403,7 +410,7 @@ func (cfg *ApiConfig) HandleGetApiBooksSearch(w http.ResponseWriter, r *http.Req
 		common.RespondWithError(w, http.StatusInternalServerError, "DB error")
 		return
 	}
-	defer handleTx(tx, &err, w)
+	defer handleTx(tx, &err, w, nil)
 
 	queries := database.New(tx)
 	books, dbErr := queries.SearchBooks(r.Context(), database.SearchBooksParams{PlaintoTsquery: searchText, Limit: int32(cfg.MaxSearchBooksLimit)})
