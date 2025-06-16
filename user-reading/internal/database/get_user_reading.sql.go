@@ -7,19 +7,24 @@ package database
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 const getUserReading = `-- name: GetUserReading :many
-SELECT book_id, status, rating FROM user_reading
+SELECT book_id, status, rating, start_date, finish_date, created_at FROM user_reading
 WHERE user_id = $1
 `
 
 type GetUserReadingRow struct {
-	BookID uuid.UUID
-	Status ReadingStatus
-	Rating int32
+	BookID     uuid.UUID
+	Status     ReadingStatus
+	Rating     int32
+	StartDate  sql.NullTime
+	FinishDate sql.NullTime
+	CreatedAt  time.Time
 }
 
 func (q *Queries) GetUserReading(ctx context.Context, userID uuid.UUID) ([]GetUserReadingRow, error) {
@@ -31,7 +36,14 @@ func (q *Queries) GetUserReading(ctx context.Context, userID uuid.UUID) ([]GetUs
 	var items []GetUserReadingRow
 	for rows.Next() {
 		var i GetUserReadingRow
-		if err := rows.Scan(&i.BookID, &i.Status, &i.Rating); err != nil {
+		if err := rows.Scan(
+			&i.BookID,
+			&i.Status,
+			&i.Rating,
+			&i.StartDate,
+			&i.FinishDate,
+			&i.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

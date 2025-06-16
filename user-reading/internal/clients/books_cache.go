@@ -46,7 +46,7 @@ func (bc *booksCache) update(bookInfo ResponseBookFullInfo) {
 	bc.mu.Unlock()
 }
 
-func (bc *booksCache) prepareLookup(bookID string, requestBookIDs *[]string, updateInfoWG *sync.WaitGroup, booksInfoMU *sync.Mutex, booksInfo *[]ResponseBookFullInfo) {
+func (bc *booksCache) prepareLookup(bookID string, requestBookIDs *[]string, updateInfoWG *sync.WaitGroup, booksInfoMU *sync.Mutex, booksInfo map[string]ResponseBookFullInfo) {
 	bc.mu.Lock()
 	info, ok := bc.IDToInfo[bookID]
 	if !ok {
@@ -62,7 +62,7 @@ func (bc *booksCache) prepareLookup(bookID string, requestBookIDs *[]string, upd
 		<-info.ready
 		booksInfoMU.Lock()
 		if info.info.ID != "" {
-			*booksInfo = append(*booksInfo, info.info)
+			booksInfo[info.info.ID] = info.info
 		}
 		booksInfoMU.Unlock()
 	}(info)

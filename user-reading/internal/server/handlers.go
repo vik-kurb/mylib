@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/bakurvik/mylib/user-reading/internal/clients"
 	"github.com/bakurvik/mylib/user-reading/internal/database"
@@ -15,12 +16,19 @@ import (
 	common "github.com/bakurvik/mylib-common"
 )
 
-type parsedUserReading struct {
+const (
+	readingStatus    = database.ReadingStatusReading
+	wantToReadStatus = database.ReadingStatusWantToRead
+	finishedStatus   = database.ReadingStatusFinished
+)
+
+type dbUserReading struct {
 	bookID     uuid.UUID
 	status     database.ReadingStatus
 	rating     int32
 	startDate  sql.NullTime
 	finishDate sql.NullTime
+	createdAt  time.Time
 }
 
 type bookReadInfo struct {
@@ -36,28 +44,28 @@ func mapUserReadingStatus(status string) (database.ReadingStatus, error) {
 	return "", errors.New("unknown reading status")
 }
 
-func parseUserReading(r *http.Request) (parsedUserReading, error) {
+func parseUserReading(r *http.Request) (dbUserReading, error) {
 	decoder := json.NewDecoder(r.Body)
 	request := UserReading{}
 	err := decoder.Decode(&request)
 	if err != nil {
-		return parsedUserReading{}, err
+		return dbUserReading{}, err
 	}
 	bookUUID, err := uuid.Parse(request.BookID)
 	if err != nil {
-		return parsedUserReading{}, err
+		return dbUserReading{}, err
 	}
-	readingStatus, err := mapUserReadingStatus(request.Status)
+	status, err := mapUserReadingStatus(request.Status)
 	if err != nil {
-		return parsedUserReading{}, err
+		return dbUserReading{}, err
 	}
 	startDate := common.ToNullTime(request.StartDate)
 	finishDate := common.ToNullTime(request.FinishDate)
 	if startDate.Valid && finishDate.Valid && startDate.Time.After(finishDate.Time) {
-		return parsedUserReading{}, errors.New("Invalid start and finish dates")
+		return dbUserReading{}, errors.New("Invalid start and finish dates")
 	}
-	res := parsedUserReading{bookID: bookUUID, status: readingStatus, startDate: startDate, finishDate: finishDate}
-	if readingStatus == database.ReadingStatusFinished {
+	res := dbUserReading{bookID: bookUUID, status: status, startDate: startDate, finishDate: finishDate}
+	if status == database.ReadingStatusFinished {
 		res.rating = int32(request.Rating)
 	}
 	return res, nil
@@ -256,46 +264,86 @@ func (cfg *ApiConfig) HandleDeleteApiUserReadingPath(w http.ResponseWriter, r *h
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func getBookIDs(userReading []ResponseUserReading) []string {
+func getBookIDs(userReading []dbUserReading) []string {
 	res := make([]string, 0, len(userReading))
 	for _, book := range userReading {
-		res = append(res, book.ID)
+		res = append(res, book.bookID.String())
 	}
 	return res
 }
 
-func getBookToResponseReading(userReading []ResponseUserReading) map[string]ResponseUserReading {
-	res := make(map[string]ResponseUserReading)
-	for _, book := range userReading {
-		res[book.ID] = book
-	}
-	return res
-}
-
-func getUserReading(db *sql.DB, userID uuid.UUID, ctx context.Context) ([]ResponseUserReading, error) {
+func getUserReading(db *sql.DB, userID uuid.UUID, ctx context.Context) ([]dbUserReading, error) {
 	queries := database.New(db)
 	userReading, dbErr := queries.GetUserReading(ctx, userID)
 	if dbErr != nil {
 		return nil, dbErr
 	}
-	res := make([]ResponseUserReading, 0, len(userReading))
+	res := make([]dbUserReading, 0, len(userReading))
 	for _, book := range userReading {
-		res = append(res, ResponseUserReading{ID: book.BookID.String(), Status: string(book.Status), Rating: int(book.Rating)})
+		res = append(res, dbUserReading{
+			bookID:     book.BookID,
+			status:     book.Status,
+			rating:     book.Rating,
+			startDate:  book.StartDate,
+			finishDate: book.FinishDate,
+			createdAt:  book.CreatedAt})
 	}
 	return res, nil
 }
 
-func getUserReadingByStatus(db *sql.DB, userID uuid.UUID, status database.ReadingStatus, ctx context.Context) ([]ResponseUserReading, error) {
+func getUserReadingByStatus(db *sql.DB, userID uuid.UUID, status database.ReadingStatus, ctx context.Context) ([]dbUserReading, error) {
 	queries := database.New(db)
 	userReading, dbErr := queries.GetUserReadingByStatus(ctx, database.GetUserReadingByStatusParams{UserID: userID, Status: status})
 	if dbErr != nil {
 		return nil, dbErr
 	}
-	res := make([]ResponseUserReading, 0, len(userReading))
+	res := make([]dbUserReading, 0, len(userReading))
 	for _, book := range userReading {
-		res = append(res, ResponseUserReading{ID: book.BookID.String(), Status: string(status), Rating: int(book.Rating)})
+		res = append(res, dbUserReading{
+			bookID:     book.BookID,
+			status:     status,
+			rating:     book.Rating,
+			startDate:  book.StartDate,
+			finishDate: book.FinishDate,
+			createdAt:  book.CreatedAt})
 	}
 	return res, nil
+}
+
+func compareDates(left dbUserReading, right dbUserReading, getDateField func(dbUserReading) sql.NullTime) bool {
+	leftDate := getDateField(left)
+	rightDate := getDateField(right)
+	if !leftDate.Valid && !rightDate.Valid {
+		return left.createdAt.After(right.createdAt)
+	}
+	if !leftDate.Valid {
+		return true
+	}
+	if !rightDate.Valid {
+		return false
+	}
+	return leftDate.Time.After(rightDate.Time)
+}
+
+func sortUserReading(books []dbUserReading) {
+	priority := map[database.ReadingStatus]int{
+		readingStatus:    0,
+		wantToReadStatus: 1,
+		finishedStatus:   2,
+	}
+
+	sort.Slice(books, func(i, j int) bool {
+		if books[i].status != books[j].status {
+			return priority[books[i].status] < priority[books[j].status]
+		}
+		if books[i].status == readingStatus {
+			return compareDates(books[i], books[j], func(a dbUserReading) sql.NullTime { return a.startDate })
+		}
+		if books[i].status == finishedStatus {
+			return compareDates(books[i], books[j], func(a dbUserReading) sql.NullTime { return a.finishDate })
+		}
+		return books[i].createdAt.After(books[j].createdAt)
+	})
 }
 
 // @Summary Get user reading
@@ -325,7 +373,7 @@ func (cfg *ApiConfig) HandleGetApiUserReadingPath(w http.ResponseWriter, r *http
 	}
 
 	requestStatus := r.URL.Query().Get("status")
-	userReading := []ResponseUserReading{}
+	userReading := []dbUserReading{}
 	if requestStatus == "" {
 		userReading, err = getUserReading(cfg.DB, userID, r.Context())
 	} else {
@@ -346,7 +394,7 @@ func (cfg *ApiConfig) HandleGetApiUserReadingPath(w http.ResponseWriter, r *http
 	}
 
 	bookIDs := getBookIDs(userReading)
-	statusCode, booksInfo, err := clients.GetBooksInfo(bookIDs, cfg.LibraryServiceHost, cfg.BooksCacheCfg)
+	statusCode, idToBookInfo, err := clients.GetBooksInfo(bookIDs, cfg.LibraryServiceHost, cfg.BooksCacheCfg)
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -355,18 +403,22 @@ func (cfg *ApiConfig) HandleGetApiUserReadingPath(w http.ResponseWriter, r *http
 		common.RespondWithError(w, http.StatusInternalServerError, "Failed to get books info")
 		return
 	}
-	bookToResponseReading := getBookToResponseReading(userReading)
+	sortUserReading(userReading)
 	response := []ResponseUserReading{}
-	for _, bookInfo := range booksInfo {
-		responseReading, ok := bookToResponseReading[bookInfo.ID]
+	for _, userReading := range userReading {
+		bookInfo, ok := idToBookInfo[userReading.bookID.String()]
 		if !ok {
 			continue
 		}
-		responseReading.Title = bookInfo.Title
-		responseReading.Authors = bookInfo.Authors
-		response = append(response, responseReading)
+		respUserReading := ResponseUserReading{
+			ID:      userReading.bookID.String(),
+			Title:   bookInfo.Title,
+			Authors: bookInfo.Authors,
+			Status:  string(userReading.status),
+			Rating:  int(userReading.rating),
+		}
+		response = append(response, respUserReading)
 	}
-	sort.Slice(response, func(i, j int) bool { return response[i].Title < response[j].Title })
 
 	common.RespondWithJSON(w, http.StatusOK, response, nil)
 }
@@ -423,15 +475,16 @@ func (cfg *ApiConfig) HandleGetApiUserReadingByBookPath(w http.ResponseWriter, r
 		common.RespondWithError(w, http.StatusInternalServerError, "Failed to get books info")
 		return
 	}
-	if len(booksInfo) == 0 {
+	bookInfo, ok := booksInfo[bookID.String()]
+	if !ok {
 		common.RespondWithError(w, http.StatusNotFound, "Unknown book")
 		return
 	}
 	response := ResponseUserReadingFullInfo{
 		ResponseUserReading: ResponseUserReading{
 			ID:      bookID.String(),
-			Title:   booksInfo[0].Title,
-			Authors: booksInfo[0].Authors,
+			Title:   bookInfo.Title,
+			Authors: bookInfo.Authors,
 			Status:  string(userReading.Status),
 			Rating:  int(userReading.Rating),
 		},

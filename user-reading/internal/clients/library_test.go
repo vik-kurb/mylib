@@ -42,7 +42,7 @@ func TestGetBooksInfo(t *testing.T) {
 		libraryResponse               []ResponseBookFullInfo
 		bookIDs                       []string
 		expectedLibraryRequestBookIDs []string
-		expectedBooks                 []ResponseBookFullInfo
+		expectedBooks                 map[string]ResponseBookFullInfo
 		hasError                      bool
 	}
 	testCases := []testCase{
@@ -56,9 +56,9 @@ func TestGetBooksInfo(t *testing.T) {
 			},
 			bookIDs:                       []string{id1.String(), id2.String()},
 			expectedLibraryRequestBookIDs: []string{id1.String(), id2.String()},
-			expectedBooks: []ResponseBookFullInfo{
-				{ID: id1.String(), Title: "Title 1", Authors: []string{"Author 1", "Author 2"}},
-				{ID: id2.String(), Title: "Title 2", Authors: []string{"Author 3"}},
+			expectedBooks: map[string]ResponseBookFullInfo{
+				id1.String(): {ID: id1.String(), Title: "Title 1", Authors: []string{"Author 1", "Author 2"}},
+				id2.String(): {ID: id2.String(), Title: "Title 2", Authors: []string{"Author 3"}},
 			},
 			hasError: false,
 		},
@@ -72,9 +72,9 @@ func TestGetBooksInfo(t *testing.T) {
 			},
 			bookIDs:                       []string{id1.String(), id2.String()},
 			expectedLibraryRequestBookIDs: []string{id1.String(), id2.String()},
-			expectedBooks: []ResponseBookFullInfo{
-				{ID: id1.String(), Title: "Title 1", Authors: []string{"Author 1", "Author 2"}},
-				{ID: id2.String(), Title: "Title 2", Authors: []string{"Author 3"}},
+			expectedBooks: map[string]ResponseBookFullInfo{
+				id1.String(): {ID: id1.String(), Title: "Title 1", Authors: []string{"Author 1", "Author 2"}},
+				id2.String(): {ID: id2.String(), Title: "Title 2", Authors: []string{"Author 3"}},
 			},
 			hasError: false,
 		},
@@ -85,9 +85,9 @@ func TestGetBooksInfo(t *testing.T) {
 			libraryResponse:               []ResponseBookFullInfo{},
 			bookIDs:                       []string{id1.String(), id2.String()},
 			expectedLibraryRequestBookIDs: []string{},
-			expectedBooks: []ResponseBookFullInfo{
-				{ID: id1.String(), Title: "Title 1", Authors: []string{"Author 1", "Author 2"}},
-				{ID: id2.String(), Title: "Title 2", Authors: []string{"Author 3"}},
+			expectedBooks: map[string]ResponseBookFullInfo{
+				id1.String(): {ID: id1.String(), Title: "Title 1", Authors: []string{"Author 1", "Author 2"}},
+				id2.String(): {ID: id2.String(), Title: "Title 2", Authors: []string{"Author 3"}},
 			},
 			hasError: false,
 		},
@@ -100,10 +100,10 @@ func TestGetBooksInfo(t *testing.T) {
 			},
 			bookIDs:                       []string{id1.String(), id2.String(), id3.String()},
 			expectedLibraryRequestBookIDs: []string{id3.String()},
-			expectedBooks: []ResponseBookFullInfo{
-				{ID: id1.String(), Title: "Title 1", Authors: []string{"Author 1", "Author 2"}},
-				{ID: id2.String(), Title: "Title 2", Authors: []string{"Author 3"}},
-				{ID: id3.String(), Title: "Title 3", Authors: []string{"Author 4", "Author 2"}},
+			expectedBooks: map[string]ResponseBookFullInfo{
+				id1.String(): {ID: id1.String(), Title: "Title 1", Authors: []string{"Author 1", "Author 2"}},
+				id2.String(): {ID: id2.String(), Title: "Title 2", Authors: []string{"Author 3"}},
+				id3.String(): {ID: id3.String(), Title: "Title 3", Authors: []string{"Author 4", "Author 2"}},
 			},
 			hasError: false,
 		},
@@ -116,7 +116,7 @@ func TestGetBooksInfo(t *testing.T) {
 
 			assert.Equal(t, err != nil, tc.hasError)
 			assert.Equal(t, statusCode, tc.libraryStatusCode)
-			assert.ElementsMatch(t, books, tc.expectedBooks)
+			assert.Equal(t, books, tc.expectedBooks)
 		})
 	}
 }
