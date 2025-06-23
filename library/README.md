@@ -1,3 +1,19 @@
+## library
+Microservice that stores books and authors data.
+
+Environment variables should be set in .env:
+| Variable                   | Description                               | Example                                                            |
+| -------------------------- | ----------------------------------------- | -------------------------------------------------------------------|
+| `DB_NAME`                  | Name of the main application database     | `library`                                                          |
+| `DB_HOST`                  | Hostname of the PostgreSQL server         | `db` (Docker service name)                                         |
+| `DB_PORT`                  | Port on which PostgreSQL is listening     | `5432`                                                             |
+| `DB_USER`                  | Database user                             | `postgres`                                                         |
+| `DB_PASSWORD`              | Database user password                    | `postgres`                                                         |
+| `TEST_DB_URL`              | Connection URL for test database (local)  | `postgres://postgres:@localhost:5432/test_library?sslmode=disable` |
+| `MAX_SEARCH_BOOKS_LIMIT`   | Maximum number of books found in search   | `10`                                                               |
+| `MAX_SEARCH_AUTHORS_LIMIT` | Maximum number of authors found in search | `10`                                                               |
+| `CORS_ALLOWED_ORIGIN`      | Allowed origin for cross-origin HTTP requests (Access-Control-Allow-Origin response header in CORS middleware) | `http://localhost:5173/` |
+
 ## Authors API:
 
 ### POST /api/authors

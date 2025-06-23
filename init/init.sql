@@ -1,3 +1,4 @@
 CREATE DATABASE library;
 CREATE DATABASE users;
 CREATE DATABASE user_reading;
+CREATE DATABASE full_text_search;
