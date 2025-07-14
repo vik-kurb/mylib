@@ -3,10 +3,12 @@ package server
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 	"sort"
 
 	"github.com/bakurvik/mylib/library/internal/database"
+	"github.com/segmentio/kafka-go"
 
 	common "github.com/bakurvik/mylib-common"
 	"github.com/google/uuid"
@@ -48,7 +50,7 @@ func (cfg *ApiConfig) HandlePostApiAuthors(w http.ResponseWriter, r *http.Reques
 	}
 
 	queries := database.New(cfg.DB)
-	dbErr := queries.CreateAuthor(
+	authorID, dbErr := queries.CreateAuthor(
 		r.Context(),
 		database.CreateAuthorParams{
 			FullName:  request.FullName,
@@ -59,6 +61,22 @@ func (cfg *ApiConfig) HandlePostApiAuthors(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
+
+	authorMessageData, err := json.Marshal(common.AuthorMessage{ID: authorID.String(), FullName: request.FullName, Action: "created"})
+	if err != nil {
+		log.Print("Failed to build author message: ", err)
+		return
+	}
+	message := kafka.Message{
+		Key:   []byte(authorID.String()),
+		Value: []byte(authorMessageData),
+	}
+
+	err = cfg.AuthorsKafkaWriter.WriteMessages(r.Context(), message)
+	if err != nil {
+		log.Print("Failed to send author message: ", err)
+		return
+	}
 }
 
 // @Summary Get authors

@@ -8,13 +8,16 @@ package database
 import (
 	"context"
 	"database/sql"
+
+	"github.com/google/uuid"
 )
 
-const createAuthor = `-- name: CreateAuthor :exec
+const createAuthor = `-- name: CreateAuthor :one
 INSERT INTO authors (id, full_name, birth_date, death_date, created_at, updated_at)
 VALUES (
     gen_random_uuid(), $1, $2, $3, NOW(), NOW()
 )
+RETURNING id
 `
 
 type CreateAuthorParams struct {
@@ -23,7 +26,9 @@ type CreateAuthorParams struct {
 	DeathDate sql.NullTime
 }
 
-func (q *Queries) CreateAuthor(ctx context.Context, arg CreateAuthorParams) error {
-	_, err := q.db.ExecContext(ctx, createAuthor, arg.FullName, arg.BirthDate, arg.DeathDate)
-	return err
+func (q *Queries) CreateAuthor(ctx context.Context, arg CreateAuthorParams) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, createAuthor, arg.FullName, arg.BirthDate, arg.DeathDate)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }

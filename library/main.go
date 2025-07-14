@@ -8,6 +8,7 @@ import (
 
 	common "github.com/bakurvik/mylib-common"
 	"github.com/bakurvik/mylib/library/internal/server"
+	"github.com/segmentio/kafka-go"
 
 	_ "github.com/bakurvik/mylib/library/docs"
 
@@ -44,8 +45,14 @@ func main() {
 		log.Fatal("Failed setup db ", err)
 	}
 
+	authorsKafkaWriter := kafka.NewWriter(kafka.WriterConfig{
+		Brokers: []string{"localhost:9092"},
+		Topic:   "authors",
+	})
+	defer authorsKafkaWriter.Close()
+
 	sm := http.NewServeMux()
-	apiCfg := server.ApiConfig{DB: db, MaxSearchBooksLimit: getLimit("MAX_SEARCH_BOOKS_LIMIT", defaultMaxSearchBooksLimit), MaxSearchAuthorsLimit: getLimit("MAX_SEARCH_AUTHORS_LIMIT", defaultMaxSearchAuthorsLimit)}
+	apiCfg := server.ApiConfig{DB: db, MaxSearchBooksLimit: getLimit("MAX_SEARCH_BOOKS_LIMIT", defaultMaxSearchBooksLimit), MaxSearchAuthorsLimit: getLimit("MAX_SEARCH_AUTHORS_LIMIT", defaultMaxSearchAuthorsLimit), AuthorsKafkaWriter: authorsKafkaWriter}
 	server.Handle(sm, &apiCfg)
 
 	s := http.Server{

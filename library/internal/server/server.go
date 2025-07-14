@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/segmentio/kafka-go"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -22,6 +23,7 @@ type ApiConfig struct {
 	DB                    *sql.DB
 	MaxSearchBooksLimit   int
 	MaxSearchAuthorsLimit int
+	AuthorsKafkaWriter    *kafka.Writer
 }
 
 func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {
