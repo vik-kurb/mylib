@@ -2,6 +2,7 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -17,13 +18,14 @@ import (
 	common "github.com/bakurvik/mylib-common"
 	"github.com/bakurvik/mylib/library/internal/server"
 	"github.com/google/uuid"
+	"github.com/segmentio/kafka-go"
 
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	selectAuthors = "SELECT full_name, birth_date, death_date, created_at, updated_at FROM authors"
+	selectAuthors = "SELECT id, full_name, birth_date, death_date, created_at, updated_at FROM authors"
 	insertAuthor  = "INSERT INTO authors(id, full_name, birth_date, death_date, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)"
 )
 
@@ -40,6 +42,32 @@ type expectedAuthor struct {
 	fullName  string
 	birthDate string
 	deathDate string
+}
+
+type kafkaMessage struct {
+	key   []byte
+	value []byte
+}
+
+type kafkaMockWriter struct {
+	messages []kafkaMessage
+}
+
+func (w *kafkaMockWriter) WriteMessages(ctx context.Context, msgs ...kafka.Message) error {
+	for _, msg := range msgs {
+		w.messages = append(w.messages, kafkaMessage{key: msg.Key, value: msg.Value})
+	}
+	return nil
+}
+
+func assertAuthorKafkaMessage(t *testing.T, w server.KafkaWriter, id string, author expectedAuthor) {
+	writer := w.(*kafkaMockWriter)
+	assert.Equal(t, len(writer.messages), 1)
+	msg := writer.messages[0]
+	assert.Equal(t, msg.key, []byte(id))
+	expectedMSG, err := json.Marshal(common.AuthorMessage{ID: id, FullName: author.fullName, Action: "created"})
+	assert.NoError(t, err)
+	assert.Equal(t, msg.value, expectedMSG)
 }
 
 func assertDateEqual(t *testing.T, timeDate sql.NullTime, expectedDate string) {
@@ -73,7 +101,7 @@ func AddAuthorsDB(db *sql.DB, authors []author) {
 	}
 }
 
-func setupTestServer(db *sql.DB) *httptest.Server {
+func setupTestServer(db *sql.DB) (*httptest.Server, server.ApiConfig) {
 	maxSearchBooksLimit, err := strconv.Atoi(os.Getenv("MAX_SEARCH_BOOKS_LIMIT"))
 	if err != nil {
 		log.Print("Invalid MAX_SEARCH_BOOKS_LIMIT value: ", os.Getenv("MAX_SEARCH_BOOKS_LIMIT"))
@@ -82,10 +110,11 @@ func setupTestServer(db *sql.DB) *httptest.Server {
 	if err != nil {
 		log.Print("Invalid MAX_SEARCH_AUTHORS_LIMIT value: ", os.Getenv("MAX_SEARCH_AUTHORS_LIMIT"))
 	}
-	apiCfg := server.ApiConfig{DB: db, MaxSearchBooksLimit: maxSearchBooksLimit, MaxSearchAuthorsLimit: maxSearcAuthorsLimit}
+
+	apiCfg := server.ApiConfig{DB: db, MaxSearchBooksLimit: maxSearchBooksLimit, MaxSearchAuthorsLimit: maxSearcAuthorsLimit, AuthorsKafkaWriter: &kafkaMockWriter{}}
 	sm := http.NewServeMux()
 	server.Handle(sm, &apiCfg)
-	return httptest.NewServer(sm)
+	return httptest.NewServer(sm), apiCfg
 }
 
 func GetDBAuthors(t *testing.T, db *sql.DB) []author {
@@ -98,7 +127,7 @@ func GetDBAuthors(t *testing.T, db *sql.DB) []author {
 
 	for rows.Next() {
 		a := author{}
-		err := rows.Scan(&a.fullName, &a.birthDate, &a.deathDate, &a.createdAt, &a.updatedAt)
+		err := rows.Scan(&a.id, &a.fullName, &a.birthDate, &a.deathDate, &a.createdAt, &a.updatedAt)
 		if err != nil {
 			log.Fatal("Error scanning row:", err)
 		}
@@ -113,10 +142,11 @@ func GetDBAuthors(t *testing.T, db *sql.DB) []author {
 
 func TestCreateAuthor(t *testing.T) {
 	type testCase struct {
-		name               string
-		requestAuthor      server.RequestAuthor
-		expectedStatusCode int
-		expectedDBAuthors  []expectedAuthor
+		name                  string
+		requestAuthor         server.RequestAuthor
+		expectedStatusCode    int
+		expectedDBAuthors     []expectedAuthor
+		expectedKafkaMessages []kafka.Message
 	}
 	testCases := []testCase{
 		{
@@ -145,7 +175,7 @@ func TestCreateAuthor(t *testing.T) {
 			defer common.CloseDB(db)
 			cleanupDB(db)
 
-			s := setupTestServer(db)
+			s, cfg := setupTestServer(db)
 			defer s.Close()
 
 			body, _ := json.Marshal(tc.requestAuthor)
@@ -156,6 +186,9 @@ func TestCreateAuthor(t *testing.T) {
 
 			authors := GetDBAuthors(t, db)
 			assertEqual(t, authors, tc.expectedDBAuthors)
+			if tc.expectedDBAuthors != nil {
+				assertAuthorKafkaMessage(t, cfg.AuthorsKafkaWriter, authors[0].id.String(), tc.expectedDBAuthors[0])
+			}
 		})
 	}
 }
@@ -203,7 +236,7 @@ func TestGetAuthors(t *testing.T) {
 			cleanupDB(db)
 			AddAuthorsDB(db, tc.dbAuthors)
 
-			s := setupTestServer(db)
+			s, _ := setupTestServer(db)
 			defer s.Close()
 
 			response, err := http.Get(s.URL + server.ApiAuthorsPath)
@@ -271,7 +304,7 @@ func TestGetAuthorsID(t *testing.T) {
 			cleanupDB(db)
 			AddAuthorsDB(db, tc.dbAuthors)
 
-			s := setupTestServer(db)
+			s, _ := setupTestServer(db)
 			defer s.Close()
 
 			response, err := http.Get(fmt.Sprintf("%v%v/{%v}", s.URL, server.ApiAuthorsPath, tc.requestAuthor))
@@ -334,7 +367,7 @@ func TestDeleteAuthor(t *testing.T) {
 			cleanupDB(db)
 			AddAuthorsDB(db, tc.dbAuthors)
 
-			s := setupTestServer(db)
+			s, _ := setupTestServer(db)
 			defer s.Close()
 
 			client := &http.Client{}
@@ -398,7 +431,7 @@ func TestUpdateAuthor(t *testing.T) {
 			cleanupDB(db)
 			AddAuthorsDB(db, tc.dbAuthors)
 
-			s := setupTestServer(db)
+			s, _ := setupTestServer(db)
 			defer s.Close()
 
 			client := &http.Client{}
@@ -457,7 +490,7 @@ func TestGetAuthorBooks(t *testing.T) {
 			AddBookAuthorsDB(db, bookID2.String(), []string{authorID1.String()})
 			AddBookAuthorsDB(db, bookID3.String(), []string{authorID2.String()})
 
-			s := setupTestServer(db)
+			s, _ := setupTestServer(db)
 			defer s.Close()
 
 			response, err := http.Get(fmt.Sprintf("%v%v/{%v}/books", s.URL, server.ApiAuthorsPath, tc.requestAuthor))
@@ -481,7 +514,7 @@ func TestPing_Success(t *testing.T) {
 	assert.NoError(t, err)
 	defer common.CloseDB(db)
 
-	s := setupTestServer(db)
+	s, _ := setupTestServer(db)
 	defer s.Close()
 
 	response, err := http.Get(s.URL + server.PingPath)
@@ -529,7 +562,7 @@ func TestSearchAuthors(t *testing.T) {
 				{id: authorID3, fullName: "Fyodor Dostoevsky"},
 			})
 
-			s := setupTestServer(db)
+			s, _ := setupTestServer(db)
 			defer s.Close()
 
 			response, err := http.Get(s.URL + server.ApiAuthorsSearchPath + "?text=" + tc.requestSearchText)

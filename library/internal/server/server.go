@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -19,11 +20,15 @@ const (
 	PingPath             = "/ping"
 )
 
+type KafkaWriter interface {
+	WriteMessages(ctx context.Context, msgs ...kafka.Message) error
+}
+
 type ApiConfig struct {
 	DB                    *sql.DB
 	MaxSearchBooksLimit   int
 	MaxSearchAuthorsLimit int
-	AuthorsKafkaWriter    *kafka.Writer
+	AuthorsKafkaWriter    KafkaWriter
 }
 
 func Handle(sm *http.ServeMux, apiCfg *ApiConfig) {

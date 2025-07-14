@@ -152,7 +152,7 @@ func TestCreateBook(t *testing.T) {
 
 			AddAuthorsDB(db, tc.dbAuthors)
 
-			s := setupTestServer(db)
+			s, _ := setupTestServer(db)
 			defer s.Close()
 
 			body, _ := json.Marshal(tc.requestBook)
@@ -235,7 +235,7 @@ func TestUpdateBook(t *testing.T) {
 			AddAuthorsDB(db, tc.dbAuthors)
 			AddBooksDB(db, tc.dbBooks)
 
-			s := setupTestServer(db)
+			s, _ := setupTestServer(db)
 			defer s.Close()
 
 			client := &http.Client{}
@@ -303,7 +303,7 @@ func TestDeleteBook(t *testing.T) {
 			AddAuthorsDB(db, tc.dbAuthors)
 			AddBooksDB(db, tc.dbBooks)
 
-			s := setupTestServer(db)
+			s, _ := setupTestServer(db)
 			defer s.Close()
 
 			client := &http.Client{}
@@ -385,7 +385,7 @@ func TestGetBooks(t *testing.T) {
 			AddBookAuthorsDB(db, book1.String(), []string{author1.String()})
 			AddBookAuthorsDB(db, book2.String(), []string{author1.String(), author2.String()})
 
-			s := setupTestServer(db)
+			s, _ := setupTestServer(db)
 			defer s.Close()
 
 			requestBooks := server.RequestBookIDs{BookIDs: tc.requestedBooks}
@@ -453,7 +453,7 @@ func TestSearchBooks(t *testing.T) {
 			AddBookAuthorsDB(db, book1.String(), []string{author1.String()})
 			AddBookAuthorsDB(db, book2.String(), []string{author2.String(), author1.String()})
 
-			s := setupTestServer(db)
+			s, _ := setupTestServer(db)
 			defer s.Close()
 
 			response, err := http.Get(s.URL + server.ApiBooksSearchPath + "?text=" + url.QueryEscape(tc.requestedText))
